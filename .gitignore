@@ -1,0 +1,10 @@
+node_modules/
+.next/
+.env.local
+*.tsbuildinfo
+.DS_Store
+
+# Private planning and handoff notes
+docs/
+RESUME.md
+plan.md
