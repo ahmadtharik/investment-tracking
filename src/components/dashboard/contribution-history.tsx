@@ -13,8 +13,11 @@ export interface HistoryDatum {
 
 export function ContributionHistory({ data }: { data: HistoryDatum[] }) {
   const colors = useChartColors();
+  const hasContributions = data.some((row) => row.TFSA > 0 || row.RRSP > 0 || row.CASH > 0);
   return (
-    <div className="h-64">
+    <div>
+      {!hasContributions && <p className="mb-3 rounded-xl bg-zinc-50 px-3 py-2 text-xs text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">No actual deposits logged yet. Use Accounts → Log an actual contribution to start this history.</p>}
+      <div className="h-64">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }} barCategoryGap="28%">
           <CartesianGrid stroke={colors.grid} vertical={false} />
@@ -36,6 +39,7 @@ export function ContributionHistory({ data }: { data: HistoryDatum[] }) {
           <Bar dataKey="CASH" stackId="invest" fill={colors.CASH} radius={[2, 2, 0, 0]} isAnimationActive={false} />
         </BarChart>
       </ResponsiveContainer>
+      </div>
     </div>
   );
 }

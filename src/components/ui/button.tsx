@@ -6,11 +6,11 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const VARIANTS = {
   primary:
-    'bg-zinc-900 text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300',
+    'bg-[var(--accent)] text-white shadow-sm hover:-translate-y-px hover:bg-[#255d88]',
   secondary:
-    'border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800',
+    'border border-[var(--line)] bg-[var(--surface)] text-zinc-700 hover:-translate-y-px hover:bg-[#f1eee7]',
   danger:
-    'border border-red-300 bg-white text-red-600 hover:bg-red-50 dark:border-red-900 dark:bg-zinc-900 dark:text-red-400 dark:hover:bg-zinc-800',
+    'border border-red-200 bg-[#fff8f7] text-red-700 hover:-translate-y-px hover:bg-red-50',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(

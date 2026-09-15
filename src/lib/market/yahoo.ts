@@ -1,4 +1,4 @@
-import yahoo from 'yahoo-finance2';
+import YahooFinance from 'yahoo-finance2';
 import { serviceSupabase } from '@/lib/supabase/server';
 
 export interface QuotePoint {
@@ -7,6 +7,9 @@ export interface QuotePoint {
 }
 
 const QUOTE_TTL_MS = 5 * 60 * 1000;
+const QUOTE_COOLDOWN_MS = 10 * 60 * 1000;
+let quoteCooldownUntil = 0;
+const yahoo = new YahooFinance({ queue: { concurrency: 1, interval: 250 }, quoteCombine: { maxSymbolsPerRequest: 50, debounceTime: 75 }, suppressNotices: ['yahooSurvey'] });
 
 /**
  * Latest quotes for the given tickers. Cache-first: entries less than 5 minutes
@@ -15,35 +18,62 @@ const QUOTE_TTL_MS = 5 * 60 * 1000;
  * Throws 'market data unavailable' when no quote could be resolved at all.
  */
 export async function getQuotes(tickers: string[]) {
-  const db = serviceSupabase();
+  // The cache is an optimisation, not a dependency. In particular, a local
+  // installation without SUPABASE_SERVICE_ROLE_KEY must still be able to ask
+  // Yahoo for a price.
+  let db: ReturnType<typeof serviceSupabase> | undefined;
+  try {
+    db = serviceSupabase();
+  } catch {
+    db = undefined;
+  }
   const out: Record<string, { price: number; currency: string; asOf: string }> = {};
-  const toFetch: string[] = [];
-  const { data } = await db.from('quote_cache').select('ticker, price, currency, as_of').in('ticker', tickers);
-  const now = Date.now();
-  for (const row of data ?? []) {
-    if (now - new Date(row.as_of).getTime() < QUOTE_TTL_MS) {
-      out[row.ticker] = { price: row.price, currency: row.currency, asOf: row.as_of };
-    } else {
-      toFetch.push(row.ticker);
-    }
-  }
-  for (const ticker of tickers) {
-    if (!(data ?? []).some((r) => r.ticker === ticker) && !toFetch.includes(ticker)) toFetch.push(ticker);
-  }
-
-  for (const ticker of toFetch) {
+  const stale: Record<string, { price: number; currency: string; asOf: string }> = {};
+  let toFetch = [...new Set(tickers)];
+  let data: Array<{ ticker: string; price: number; currency: string; as_of: string }> = [];
+  if (db) {
     try {
-      const q = await yahoo.quote(ticker);
-      const row = Array.isArray(q) ? q[0] : q;
-      const price = row?.regularMarketPrice;
-      if (price == null) continue;
-      out[ticker] = { price, currency: row.currency ?? 'CAD', asOf: new Date().toISOString() };
-      await db
-        .from('quote_cache')
-        .upsert({ ticker, price, currency: row.currency ?? 'CAD', as_of: new Date().toISOString() });
+      const cached = await db.from('quote_cache').select('ticker, price, currency, as_of').in('ticker', tickers);
+      data = cached.data ?? [];
     } catch {
-      // Leave this ticker missing — if everything fails we throw below.
+      // A missing cache table or unavailable Supabase project must not take
+      // the market-data provider down with it.
     }
+  }
+  const now = Date.now();
+  for (const row of data) {
+    const cached = { price: row.price, currency: row.currency, asOf: row.as_of };
+    if (now - new Date(row.as_of).getTime() < QUOTE_TTL_MS) {
+      out[row.ticker] = cached;
+    } else {
+      stale[row.ticker] = cached;
+    }
+  }
+  toFetch = toFetch.filter((ticker) => !out[ticker]);
+
+  if (Date.now() < quoteCooldownUntil) {
+    for (const ticker of toFetch) if (stale[ticker]) out[ticker] = stale[ticker];
+  } else {
+    await Promise.all(toFetch.map(async (ticker) => {
+      try {
+        const q = await yahoo.quoteCombine(ticker);
+        const row = Array.isArray(q) ? q[0] : q;
+        const price = row?.regularMarketPrice;
+        if (price == null) return;
+        const asOf = new Date().toISOString();
+        out[ticker] = { price, currency: row.currency ?? 'CAD', asOf };
+        if (db) {
+          try {
+            await db.from('quote_cache').upsert({ ticker, price, currency: row.currency ?? 'CAD', as_of: asOf });
+          } catch {
+            // Keep the live result even if cache persistence fails.
+          }
+        }
+      } catch (error) {
+        if (error instanceof Error && /too many requests|429/i.test(error.message)) quoteCooldownUntil = Date.now() + QUOTE_COOLDOWN_MS;
+        if (stale[ticker]) out[ticker] = stale[ticker];
+      }
+    }));
   }
 
   if (tickers.length > 0 && Object.keys(out).length === 0) throw new Error('market data unavailable');
@@ -56,36 +86,60 @@ export async function getQuotes(tickers: string[]) {
  * cached rows are merged back in so the response is sorted and deduped.
  */
 export async function getHistory(ticker: string, period: '1y' | '2y' | '5y' | 'max'): Promise<QuotePoint[]> {
-  const db = serviceSupabase();
+  let db: ReturnType<typeof serviceSupabase> | undefined;
+  try {
+    db = serviceSupabase();
+  } catch {
+    db = undefined;
+  }
   const months = { '1y': 12, '2y': 24, '5y': 60, max: 240 }[period];
   const from = new Date();
   from.setMonth(from.getMonth() - months);
 
-  const { data: cached } = await db
-    .from('price_cache')
-    .select('price_date, close')
-    .eq('ticker', ticker)
-    .gte('price_date', from.toISOString().slice(0, 10));
+  let cached: Array<{ price_date: string; close: number }> = [];
+  if (db) {
+    try {
+      const result = await db
+        .from('price_cache')
+        .select('price_date, close')
+        .eq('ticker', ticker)
+        .gte('price_date', from.toISOString().slice(0, 10));
+      cached = result.data ?? [];
+    } catch {
+      // Historical data can still be served directly from Yahoo.
+    }
+  }
 
-  const history = await yahoo.historical(ticker, {
-    period1: new Date(from),
-    period2: new Date(),
-    interval: '1mo',
-    events: 'history',
-  });
+  let history: any[] = [];
+  try {
+    history = await yahoo.historical(ticker, {
+      period1: new Date(from),
+      period2: new Date(),
+      interval: '1mo',
+      events: 'history',
+    });
+  } catch (error) {
+    const fallback = cached.map((r) => ({ date: r.price_date, close: r.close }));
+    if (fallback.length > 0) return fallback.sort((a, b) => a.date.localeCompare(b.date));
+    throw new Error(`Historical market data unavailable for ${ticker}`);
+  }
   const points: QuotePoint[] = history.map((bar: any) => ({
     date: new Date(bar.date).toISOString().slice(0, 10),
     close: bar.close,
   }));
 
-  const cachedDates = new Set((cached ?? []).map((r: any) => r.price_date));
+  const cachedDates = new Set(cached.map((r) => r.price_date));
   const missing = points.filter((p) => !cachedDates.has(p.date));
-  if (missing.length > 0) {
-    await db.from('price_cache').upsert(missing.map((p) => ({ ticker, price_date: p.date, close: p.close })));
+  if (db && missing.length > 0) {
+    try {
+      await db.from('price_cache').upsert(missing.map((p) => ({ ticker, price_date: p.date, close: p.close })));
+    } catch {
+      // Cache writes are best-effort.
+    }
   }
 
   const merged = [
-    ...(cached ?? []).map((r: any) => ({ date: r.price_date, close: r.close })),
+    ...cached.map((r) => ({ date: r.price_date, close: r.close })),
     ...missing,
   ];
   return merged.sort((a, b) => a.date.localeCompare(b.date));

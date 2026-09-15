@@ -28,7 +28,7 @@ export default function LoginPage() {
     }
     if (isSignUp) {
       // With email confirmations enabled, Supabase sends a confirm link first.
-      setError('Account created — check your email to confirm, then sign in.');
+      setError('Account created. Check your email to confirm, then sign in.');
       return;
     }
     router.push('/dashboard');

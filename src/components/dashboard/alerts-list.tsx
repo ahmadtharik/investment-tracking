@@ -6,14 +6,14 @@ type Severity = 'critical' | 'warning';
 
 const STYLES: Record<Severity, { wrap: string; icon: string; iconColor: string }> = {
   critical: {
-    wrap: 'border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30',
+    wrap: 'border-red-200 bg-[#fff7f5]',
     icon: '✕',
-    iconColor: 'text-[#d03b3b] dark:text-[#e66767]',
+    iconColor: 'text-[#b7443a]',
   },
   warning: {
-    wrap: 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30',
+    wrap: 'border-[#f0d5a6] bg-[#fffaf0]',
     icon: '!',
-    iconColor: 'text-amber-600 dark:text-amber-400',
+    iconColor: 'text-[#a66b13]',
   },
 };
 
@@ -27,12 +27,12 @@ function describe(a: Alert): { severity: Severity; text: string } {
     case 'ROOM_NEARLY_GONE':
       return {
         severity: 'warning',
-        text: `${a.account}: room is nearly used up — ${formatCAD(a.roomLeft)} will remain at the current pace.`,
+        text: `${a.account}: room is nearly used up. ${formatCAD(a.roomLeft)} will remain at the current pace.`,
       };
     case 'ALLOCATION_SUM':
       return {
         severity: 'critical',
-        text: `Your ${a.where} allocation sums to ${Math.round(a.sum * 1000) / 10}% — it must total 100%. Fix it in Settings.`,
+        text: `Your ${a.where} allocation sums to ${Math.round(a.sum * 1000) / 10}%. It must total 100%. Fix it in Settings.`,
       };
     case 'EMERGENCY_BELOW_TARGET':
       return {
@@ -51,7 +51,7 @@ export function AlertsList({ alerts }: { alerts: Alert[] }) {
   return (
     <Card title="Alerts">
       {alerts.length === 0 ? (
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">No alerts — everything is on track.</p>
+        <p className="text-sm text-[var(--muted)]">No alerts. Everything is on track.</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {alerts.map((a, i) => {
@@ -65,7 +65,7 @@ export function AlertsList({ alerts }: { alerts: Alert[] }) {
                 <span aria-hidden className={`mt-0.5 font-semibold ${s.iconColor}`}>
                   {s.icon}
                 </span>
-                <span className="text-zinc-800 dark:text-zinc-200">{text}</span>
+                <span className="text-[var(--ink)]">{text}</span>
               </li>
             );
           })}

@@ -2,7 +2,7 @@ import { Card } from '@/components/ui/card';
 
 const rules = [
   ['TFSA is a tax-free shelter, not an investment.', 'Choose investments inside the account; the account itself does not create returns.'],
-  ['Total return includes price appreciation and reinvested dividends — do not double-count.', 'Use one total-return figure when comparing strategies.'],
+  ['Total return includes price appreciation and reinvested dividends, do not double-count.', 'Use one total-return figure when comparing strategies.'],
   ['XEQT is global equity in one fund.', 'Its broad diversification makes it a simple core holding.'],
   ['VTI is a deliberate US tilt.', 'Use it when you intentionally want more US exposure, not as an accidental duplicate.'],
   ['Avoid overlap.', 'XEQT already holds US large-cap stocks, so adding VTI increases that exposure.'],

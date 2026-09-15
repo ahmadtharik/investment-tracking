@@ -93,7 +93,12 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+      <section className="rounded-3xl border border-[var(--line)] bg-[var(--surface)] p-7 shadow-[0_12px_40px_rgba(53,48,36,0.06)] motion-safe:animate-[fade-in_420ms_ease-out]">
+        <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
+          <div><p className="text-sm font-medium text-[var(--accent)]">Your plan at a glance</p><h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">Make room for what matters.</h1><p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted)]">A calm view of your monthly surplus, account room, and the next useful decision.</p></div>
+          <div className="rounded-2xl bg-[#edf4f8] px-5 py-4 md:min-w-64"><p className="text-xs font-medium uppercase tracking-wide text-[#52758e]">Next action</p><p className="mt-1 text-sm font-medium text-[#244a61]">Review your allocation and room</p><a href="/accounts" className="mt-2 inline-block text-sm font-medium text-[var(--accent)] underline underline-offset-2">Open accounts</a></div>
+        </div>
+      </section>
       <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
         Where your money goes each month, and how this year is tracking.
       </p>
@@ -117,7 +122,7 @@ export default async function DashboardPage() {
         <Card title="Recommended allocation" description="Monthly surplus split by account.">
           <AllocationDonut data={donutData} />
         </Card>
-        <Card title="Contribution history" description="Actual contributions over the last 12 months.">
+        <Card title="Contribution history" description="Logged actual deposits by account over the last 12 months. Add deposits from Accounts; planned allocations are not included.">
           <ContributionHistory data={history} />
         </Card>
       </div>

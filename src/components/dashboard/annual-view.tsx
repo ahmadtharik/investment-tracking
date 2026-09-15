@@ -31,7 +31,7 @@ export function AnnualView({
         {rows.map((r) => (
           <div key={r.label}>
             <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-              {r.label} — projected annual / room left
+              {r.label}, projected annual / room left
             </p>
             <p className="mt-1 text-2xl font-semibold tabular-nums">
               {formatCAD(r.planned)}

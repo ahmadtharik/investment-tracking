@@ -19,11 +19,12 @@ export function PortfolioClient({ userId, instruments, initialHoldings, initialQ
       .then((data) => { if (!cancelled && data?.quotes) setQuotes(data.quotes); })
       .catch(() => undefined);
     refresh();
-    const timer = window.setInterval(refresh, 60000);
-    return () => { cancelled = true; window.clearInterval(timer); };
+    return () => { cancelled = true; };
   }, [tickers]);
-  const value = (h: HoldingWithInstrument) => { const q = quotes[h.ticker]; const native = h.units * (q?.price ?? 1); return h.currency === 'USD' ? native * h.fx_rate : native; };
+  const value = (h: HoldingWithInstrument) => { const q = quotes[h.ticker]; const native = q ? h.units * q.price : h.balance_native; return h.currency === 'USD' ? native * h.fx_rate : native; };
   const total = holdings.reduce((sum, h) => sum + value(h), 0);
   const by = (key: 'account' | 'currency'): AllocationDatum[] => Object.entries(holdings.reduce<Record<string, number>>((a, h) => { const k = key === 'account' ? h.account : h.currency; a[k] = (a[k] ?? 0) + value(h); return a; }, {})).map(([k, v]) => ({ key: k, name: k === 'CASH' ? 'Cash' : k, value: v }));
-  return <><div className="mt-6 rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950"><p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Total portfolio value</p><p className="mt-1 text-3xl font-semibold tabular-nums">{formatCAD(total)}</p><p className="mt-1 text-xs text-zinc-500">CAD value based on latest available quotes</p></div><div className="mt-6"><PortfolioAllocation byAccount={by('account')} byCurrency={by('currency')} /></div><div className="mt-6"><HoldingsForm userId={userId} instruments={instruments} holdings={holdings} quotes={quotes} onChanged={setHoldings} /></div></>;
+  const latestQuote = Object.values(quotes).map((quote) => quote.asOf).filter(Boolean).sort().at(-1);
+  const missingQuotes = holdings.some((holding) => !quotes[holding.ticker]);
+  return <><div className="mt-6 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-6 shadow-[0_8px_30px_rgba(53,48,36,0.04)]"><p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Total portfolio value</p><p className="mt-2 text-4xl font-semibold tracking-tight tabular-nums text-[var(--ink)]">{formatCAD(total)}</p><p className="mt-2 text-xs text-[var(--muted)]">{missingQuotes ? 'Some live quotes are temporarily unavailable. Those holdings use their recorded native balance until pricing resumes.' : `CAD value based on latest available quotes${latestQuote ? `, last updated ${new Date(latestQuote).toLocaleString()}` : ''}.`}</p></div><div className="mt-6"><PortfolioAllocation byAccount={by('account')} byCurrency={by('currency')} /></div><div className="mt-6"><HoldingsForm userId={userId} instruments={instruments} holdings={holdings} quotes={quotes} onChanged={setHoldings} /></div></>;
 }

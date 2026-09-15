@@ -15,7 +15,12 @@ export async function GET(request: NextRequest) {
   try {
     const quotes = await getQuotes(tickers);
     return NextResponse.json({ quotes });
-  } catch {
-    return NextResponse.json({ error: 'market data unavailable' }, { status: 503 });
+  } catch (error) {
+    // A provider throttle is an expected temporary condition. Returning a
+    // successful empty result lets clients retain their last known values
+    // instead of treating every polling cycle as an application failure.
+    const reason = error instanceof Error ? error.message : 'Unknown market-data error';
+    console.error('Market quote request failed:', { tickers, reason });
+    return NextResponse.json({ quotes: {}, available: false, retryAfterSeconds: 600, reason });
   }
 }

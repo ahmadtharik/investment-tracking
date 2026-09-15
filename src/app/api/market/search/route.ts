@@ -13,6 +13,6 @@ export async function GET(request: NextRequest) {
     const results = await searchInstruments(q);
     return NextResponse.json({ results });
   } catch {
-    return NextResponse.json({ error: 'market data unavailable' }, { status: 503 });
+    return NextResponse.json({ error: 'Yahoo search is temporarily unavailable. Try again or add the ticker manually.' }, { status: 503 });
   }
 }

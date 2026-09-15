@@ -7,8 +7,9 @@ vi.mock('@/lib/supabase/server', () => ({
   serviceSupabase: () => mockServiceSupabase(),
 }));
 
-const mockYahoo = vi.hoisted(() => ({ quote: vi.fn(), historical: vi.fn(), search: vi.fn() }));
-vi.mock('yahoo-finance2', () => ({ default: mockYahoo }));
+const mockYahoo = vi.hoisted(() => ({ quoteCombine: vi.fn(), historical: vi.fn(), search: vi.fn() }));
+const MockYahooFinance = vi.hoisted(() => vi.fn(function MockYahooFinance() { return mockYahoo; }));
+vi.mock('yahoo-finance2', () => ({ default: MockYahooFinance }));
 
 import { getQuotes, getHistory, searchInstruments } from '@/lib/market/yahoo';
 
@@ -66,7 +67,7 @@ const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString(
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockYahoo.quote.mockReset();
+  mockYahoo.quoteCombine.mockReset();
   mockYahoo.historical.mockReset();
   mockYahoo.search.mockReset();
 });
@@ -82,7 +83,7 @@ describe('getQuotes', () => {
     );
     const out = await getQuotes(['XEQT.TO']);
     expect(out['XEQT.TO'].price).toBe(42.5);
-    expect(mockYahoo.quote).not.toHaveBeenCalled();
+    expect(mockYahoo.quoteCombine).not.toHaveBeenCalled();
   });
 
   it('refetches stale entries and upserts the cache', async () => {
@@ -90,26 +91,26 @@ describe('getQuotes', () => {
       quote_cache: [{ ticker: 'XEQT.TO', price: 40, currency: 'CAD', as_of: minutesAgo(60) }],
     });
     mockServiceSupabase.mockReturnValue(db);
-    mockYahoo.quote.mockResolvedValue([{ symbol: 'XEQT.TO', regularMarketPrice: 42.5, currency: 'CAD' }]);
+    mockYahoo.quoteCombine.mockResolvedValue([{ symbol: 'XEQT.TO', regularMarketPrice: 42.5, currency: 'CAD' }]);
 
     const out = await getQuotes(['XEQT.TO']);
     expect(out['XEQT.TO'].price).toBe(42.5);
-    expect(mockYahoo.quote).toHaveBeenCalledWith('XEQT.TO');
+    expect(mockYahoo.quoteCombine).toHaveBeenCalledWith('XEQT.TO');
     expect(db.tables.quote_cache[0].price).toBe(42.5);
     expect(new Date(db.tables.quote_cache[0].as_of).getTime()).toBeGreaterThan(Date.now() - 60_000);
   });
 
   it('fetches tickers that are not in the cache at all', async () => {
     mockServiceSupabase.mockReturnValue(new FakeSupabase({}));
-    mockYahoo.quote.mockResolvedValue([{ symbol: 'VTI', regularMarketPrice: 300, currency: 'USD' }]);
+    mockYahoo.quoteCombine.mockResolvedValue([{ symbol: 'VTI', regularMarketPrice: 300, currency: 'USD' }]);
     const out = await getQuotes(['VTI']);
     expect(out['VTI'].price).toBe(300);
-    expect(mockYahoo.quote).toHaveBeenCalledWith('VTI');
+    expect(mockYahoo.quoteCombine).toHaveBeenCalledWith('VTI');
   });
 
   it('throws when every ticker fails', async () => {
     mockServiceSupabase.mockReturnValue(new FakeSupabase({}));
-    mockYahoo.quote.mockRejectedValue(new Error('yahoo down'));
+    mockYahoo.quoteCombine.mockRejectedValue(new Error('yahoo down'));
     await expect(getQuotes(['VTI'])).rejects.toThrow('market data unavailable');
   });
 });

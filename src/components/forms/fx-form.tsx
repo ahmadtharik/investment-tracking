@@ -41,7 +41,7 @@ export function FxForm({ userId, midRate, asOf, initialAmount, initialProvider, 
     try {
       const tickers = usdTickers.length ? usdTickers : ['VTI'];
       await saveFxPrefs(clientSupabase(), userId, tickers.map((ticker) => ({ ticker, provider, custom_rate: rate })));
-      setMessage('Saved — the dashboard will use this provider and rate for USD purchases.');
+      setMessage('Saved. The dashboard will use this provider and rate for USD purchases.');
     } catch { setMessage('Could not save your preference. Check your connection and try again.'); }
     finally { setSaving(false); }
   }
@@ -55,7 +55,7 @@ export function FxForm({ userId, midRate, asOf, initialAmount, initialProvider, 
         {provider === 'CUSTOM' ? <Field label="Custom rate" htmlFor="fx-custom" hint="CAD per USD."><Input id="fx-custom" type="number" min="0.000001" step="0.0001" value={customRate} onChange={(e) => setCustomRate(e.target.value)} /></Field> : <div />}
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-3"><Button onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save preference'}</Button>{message && <p className="text-sm text-zinc-500" role="status">{message}</p>}</div>
-      <p className="mt-3 text-xs text-zinc-400">{asOf ? `Rate updated ${new Date(asOf).toLocaleString('en-CA')}.` : 'Live rate unavailable — using the latest available rate.'}</p>
+      <p className="mt-3 text-xs text-zinc-400">{asOf ? `Rate updated ${new Date(asOf).toLocaleString('en-CA')}.` : 'Live rate unavailable, using the latest available rate.'}</p>
     </Card>
 
     <div className="grid gap-6 lg:grid-cols-2">

@@ -20,11 +20,11 @@ export function OverviewCards({
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       {tiles.map((t) => (
-        <div key={t.label} className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{t.label}</p>
+        <div key={t.label} className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[0_6px_22px_rgba(53,48,36,0.035)]">
+          <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">{t.label}</p>
           <p
             className={`mt-1 text-2xl font-semibold tabular-nums ${
-              t.negative ? 'text-red-600 dark:text-red-400' : ''
+              t.negative ? 'text-red-700' : 'text-[var(--ink)]'
             }`}
           >
             {t.value}

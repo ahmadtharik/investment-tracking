@@ -79,8 +79,20 @@ export async function getOrCreateProfile(client: SupabaseClient, userId: string)
   const { data, error } = await client.from('profiles').select('*').eq('id', userId).maybeSingle();
   if (error) throw error;
   if (data) return data as Profile;
-  const { data: created, error: insErr } = await client.from('profiles').insert({ id: userId }).select('*').single();
-  if (insErr) throw insErr;
+
+  // TFSA room starts with the commonly quoted lifetime maximum only as an editable
+  // estimate. The Settings onboarding explains the eligibility assumptions.
+  // Ignore a concurrent initial insert, then read the canonical profile row.
+  const { error: upsertError } = await client
+    .from('profiles')
+    .upsert({ id: userId, tfsa_room: 109000, rrsp_room: 0 }, { onConflict: 'id', ignoreDuplicates: true });
+  if (upsertError) throw upsertError;
+  const { data: created, error: createdError } = await client
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .single();
+  if (createdError) throw createdError;
   return created as Profile;
 }
 

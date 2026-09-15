@@ -192,7 +192,7 @@ export function SettingsForm({ userId, profile, accountAlloc, etfAlloc, instrume
     <>
       {instruments.map((i) => (
         <option key={i.id} value={String(i.id)}>
-          {i.ticker} — {i.name}
+        {i.ticker} / {i.name}
         </option>
       ))}
     </>
@@ -258,7 +258,7 @@ export function SettingsForm({ userId, profile, accountAlloc, etfAlloc, instrume
 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col">
-      <Card title="Income & expenses" description="Monthly figures in CAD. Surplus = income − expenses.">
+      <Card title="Income and expenses" description="Monthly figures in CAD. Surplus equals income minus expenses.">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Monthly income" htmlFor="monthlyIncome" error={errors.monthlyIncome}>
             <Input
@@ -298,7 +298,7 @@ export function SettingsForm({ userId, profile, accountAlloc, etfAlloc, instrume
           <Field
             label="Emergency fund (target)"
             htmlFor="emergencyTarget"
-            hint="e.g. 3–6 months of expenses. Surplus fills this before investing."
+            hint="For example, 3 to 6 months of expenses. Surplus fills this before investing."
             error={errors.emergencyTarget}
           >
             <Input
@@ -353,7 +353,7 @@ export function SettingsForm({ userId, profile, accountAlloc, etfAlloc, instrume
 
       <div className="mt-6 flex items-center gap-3">
         <Button type="submit" disabled={saving}>
-          {saving ? 'Saving…' : 'Save settings'}
+          {saving ? 'Saving...' : 'Save settings'}
         </Button>
         {savedAt && <span className="text-sm text-emerald-600 dark:text-emerald-400">Saved ✓</span>}
         {saveError && <span className="text-sm text-red-600 dark:text-red-400">{saveError}</span>}

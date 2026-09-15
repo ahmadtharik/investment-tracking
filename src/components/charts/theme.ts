@@ -1,7 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-
 /**
  * Categorical series colors — validated by the dataviz palette checks
  * (light surface #ffffff, dark surface #09090b). Fixed order: slot 1 blue,
@@ -14,22 +12,14 @@ export const SERIES = {
   CASH: { light: '#1baf7a', dark: '#199e70' },
 } as const;
 
-/** Chart ink: picks light/dark steps of the validated reference palette. */
+/** Chart ink for the app's deliberately light, calm workspace. */
 export function useChartColors() {
-  const [dark, setDark] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const update = () => setDark(mq.matches);
-    update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
-  }, []);
   return {
-    TFSA: dark ? SERIES.TFSA.dark : SERIES.TFSA.light,
-    RRSP: dark ? SERIES.RRSP.dark : SERIES.RRSP.light,
-    CASH: dark ? SERIES.CASH.dark : SERIES.CASH.light,
-    text: dark ? '#c3c2b7' : '#52514e',
-    grid: dark ? '#2c2c2a' : '#e1e0d9',
-    axis: '#898781',
+    TFSA: SERIES.TFSA.light,
+    RRSP: SERIES.RRSP.light,
+    CASH: SERIES.CASH.light,
+    text: '#52514e',
+    grid: '#ebe8e1',
+    axis: '#6f6b63',
   };
 }

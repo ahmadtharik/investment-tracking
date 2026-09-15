@@ -56,7 +56,7 @@ export function PurchasesTable({
                   {fxEntry ? (
                     <span title={`Provider: ${fxEntry.provider}`}>{formatCAD(fxEntry.fxCostCad)}</span>
                   ) : (
-                    <span className="text-zinc-400 dark:text-zinc-500">—</span>
+                    <span className="text-zinc-400 dark:text-zinc-500">n/a</span>
                   )}
                 </td>
                 <td className="py-2 text-right tabular-nums text-zinc-600 dark:text-zinc-300">

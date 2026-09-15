@@ -4,10 +4,13 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
   { className = '', ...props },
   ref
 ) {
+  const isRange = props.type === 'range';
   return (
     <input
       ref={ref}
-      className={`w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 ${className}`}
+      className={isRange
+        ? `w-full cursor-pointer accent-[#4c7895] focus:outline-none focus:ring-2 focus:ring-[#dcecf7] ${className}`
+        : `w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--ink)] placeholder:text-[var(--muted)] shadow-[0_1px_2px_rgba(53,48,36,0.03)] focus:border-[#78a9ca] focus:outline-none focus:ring-2 focus:ring-[#dcecf7] ${className}`}
       {...props}
     />
   );
