@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { futureValue, projectSeries } from '@/lib/engine/projection';
+import { futureValue, projectBankComparison, projectSeries } from '@/lib/engine/projection';
 
 describe('projection engine', () => {
   it('matches the monthly annuity formula', () => {
@@ -18,5 +18,14 @@ describe('projection engine', () => {
     expect(series[0].value).toBe(1000);
     expect(series[11].value).toBeCloseTo(futureValue(input, 1 - 1 / 12).value, 6);
     expect(series).toHaveLength(13);
+  });
+  it('projects nominal and inflation-adjusted bank balances annually', () => {
+    const data = projectBankComparison(1000, 5, 2, 2);
+    expect(data.map((point) => point.year)).toEqual([0, 1, 2]);
+    expect(data[2].nominal).toBeCloseTo(1102.5, 10);
+    expect(data[2].real).toBeCloseTo(1000 * (1.05 / 1.02) ** 2, 10);
+  });
+  it('returns the initial point for a zero horizon', () => {
+    expect(projectBankComparison(1000, 5, 2, 0)).toEqual([{ year: 0, nominal: 1000, real: 1000 }]);
   });
 });

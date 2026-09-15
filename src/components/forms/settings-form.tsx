@@ -17,6 +17,8 @@ import { Card } from '@/components/ui/card';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { AllocationBar } from '@/components/allocation-bar';
+import { formatCAD } from '@/lib/format';
 
 // ── Validation ────────────────────────────────────────────────────────
 
@@ -114,6 +116,8 @@ export function SettingsForm({ userId, profile, accountAlloc, etfAlloc, instrume
   const accountTotal = num(tfsaPct) + num(rrspPct) + num(cashPct);
   const tfsaEtfTotal = tfsaEtf.reduce((t, r) => t + num(r.pct), 0);
   const rrspEtfTotal = rrspEtf.reduce((t, r) => t + num(r.pct), 0);
+  const monthlySurplus = Math.max(0, num(monthlyIncome) - num(monthlyExpenses));
+  const accountAmount = (pct: string) => monthlySurplus * num(pct) / 100;
 
   const setEtfRow = (
     setter: (rows: EtfRowState[]) => void,
@@ -210,7 +214,7 @@ export function SettingsForm({ userId, profile, accountAlloc, etfAlloc, instrume
     <Card title={title} description={description} className="mt-6">
       <div className="flex flex-col gap-3">
         {rows.map((row, i) => (
-          <div key={i} className="flex items-center gap-2">
+          <div key={i} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 sm:grid-cols-[minmax(14rem,1fr)_6rem_auto_auto]">
             <Select
               value={row.instrumentId}
               onChange={(e) => setEtfRow(setter, rows, i, { instrumentId: e.target.value })}
@@ -238,6 +242,7 @@ export function SettingsForm({ userId, profile, accountAlloc, etfAlloc, instrume
             >
               ✕
             </Button>
+            <span className="col-span-full text-xs text-zinc-500 sm:col-span-1 sm:col-start-2">Monthly plan: {formatCAD(accountAmount(title.startsWith('TFSA') ? tfsaPct : rrspPct) * num(row.pct) / 100)}</span>
           </div>
         ))}
         <div className="flex items-center justify-between">
@@ -252,6 +257,7 @@ export function SettingsForm({ userId, profile, accountAlloc, etfAlloc, instrume
               {msg}
             </p>
           ))}
+        <AllocationBar title={`${title} monthly plan`} total={total} segments={rows.map((row, index) => ({ label: instruments.find((instrument) => String(instrument.id) === row.instrumentId)?.ticker ?? `Instrument ${index + 1}`, pct: num(row.pct), amount: accountAmount(title.startsWith('TFSA') ? tfsaPct : rrspPct) * num(row.pct) / 100, color: title.startsWith('TFSA') ? ['#4d8fbd', '#76abc9', '#9bc7dc'][index % 3] : ['#d8894c', '#e5a16f', '#efbd92'][index % 3] }))} />
       </div>
     </Card>
   );
@@ -330,6 +336,7 @@ export function SettingsForm({ userId, profile, accountAlloc, etfAlloc, instrume
           </Field>
         </div>
         <div className="mt-3">{totalsReadout(accountTotal, 'Account allocation')}</div>
+        <AllocationBar title="Account allocation" total={accountTotal} segments={[{ label: 'TFSA', pct: num(tfsaPct), amount: accountAmount(tfsaPct), color: '#4d8fbd' }, { label: 'RRSP', pct: num(rrspPct), amount: accountAmount(rrspPct), color: '#d8894c' }, { label: 'Cash', pct: num(cashPct), amount: accountAmount(cashPct), color: '#54b7b1' }]} />
       </Card>
 
       {etfAllocationBlock(
@@ -352,8 +359,8 @@ export function SettingsForm({ userId, profile, accountAlloc, etfAlloc, instrume
       )}
 
       <div className="mt-6 flex items-center gap-3">
-        <Button type="submit" disabled={saving}>
-          {saving ? 'Saving...' : 'Save settings'}
+        <Button type="submit" loading={saving} loadingLabel="Saving…">
+          Save settings
         </Button>
         {savedAt && <span className="text-sm text-emerald-600 dark:text-emerald-400">Saved ✓</span>}
         {saveError && <span className="text-sm text-red-600 dark:text-red-400">{saveError}</span>}

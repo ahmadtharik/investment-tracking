@@ -5,6 +5,7 @@ import { clientSupabase } from '@/lib/supabase/client';
 import { addWithdrawal, deleteWithdrawal, type WithdrawalRow } from '@/lib/db/queries';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Field } from '@/components/ui/field';
 import { formatCAD } from '@/lib/format';
 import { InfoTooltip } from '@/components/ui/info-tooltip';
@@ -47,9 +48,9 @@ export function WithdrawalForm({ userId, withdrawals }: { userId: string; withdr
     <div>
       <form onSubmit={add} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end sm:justify-items-stretch" noValidate>
         <Field label="Amount (CAD)" htmlFor="withdrawalAmount"><Input id="withdrawalAmount" type="number" min={0} step="any" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
-        <Field label="Withdrawal date" htmlFor="withdrawalDate"><Input id="withdrawalDate" type="date" value={date} onChange={(e) => { const next = e.target.value; setDate(next); if (next) setRestoreYear(String(Number(next.slice(0, 4)) + 1)); }} /></Field>
+        <Field label="Withdrawal date" htmlFor="withdrawalDate"><DatePicker id="withdrawalDate" value={date} onChange={(next) => { setDate(next); if (next) setRestoreYear(String(Number(next.slice(0, 4)) + 1)); }} aria-label="Withdrawal date" /></Field>
         <Field label={<span>Room restored in <InfoTooltip>Usually withdrawal year + 1.</InfoTooltip></span>} htmlFor="restoreYear"><Input id="restoreYear" type="number" min={1900} step={1} value={restoreYear} onChange={(e) => setRestoreYear(e.target.value)} /></Field>
-        <Button type="submit" disabled={busy}>Add withdrawal</Button>
+        <Button type="submit" loading={busy} loadingLabel="Adding…">Add withdrawal</Button>
       </form>
       {message && <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">{message}</p>}
       <div className="mt-5 overflow-x-auto">

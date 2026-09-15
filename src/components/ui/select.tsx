@@ -1,19 +1,10 @@
-import { forwardRef, type SelectHTMLAttributes } from 'react';
-
-export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function Select(
-  { className = '', children, ...props },
-  ref
-) {
-  return (
-    <span className="group relative block w-full">
-      <select
-        ref={ref}
-        className={`w-full min-w-0 appearance-none rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 pr-10 text-sm text-[var(--ink)] shadow-[0_1px_2px_rgba(53,48,36,0.03)] transition-colors duration-150 focus:border-[#78a9ca] focus:outline-none focus:ring-2 focus:ring-[#dcecf7] ${className}`}
-        {...props}
-      >
-        {children}
-      </select>
-      <svg aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-    </span>
-  );
+'use client';
+import * as SelectPrimitive from '@radix-ui/react-select';
+import { Children, Fragment, forwardRef, isValidElement, type ReactNode } from 'react';
+type SelectProps = { value?: string | number; defaultValue?: string | number; onChange?: (event: { target: { value: string }; currentTarget: { value: string } }) => void; onValueChange?: (value: string) => void; id?: string; 'aria-label'?: string; disabled?: boolean; className?: string; children?: ReactNode };
+export const Select = forwardRef<HTMLButtonElement, SelectProps>(function Select({ className = '', children, value, defaultValue, onChange, onValueChange, ...props }, ref) {
+  const optionNodes = Children.toArray(children).flatMap((child) => isValidElement(child) && child.type === Fragment ? Children.toArray((child.props as { children?: ReactNode }).children) : [child]);
+  const options = optionNodes.filter(isValidElement).map((child) => { const option = child.props as { value?: string | number; children?: ReactNode; disabled?: boolean }; return { value: String(option.value ?? option.children), label: option.children, disabled: option.disabled }; });
+  const changed = (next: string) => { onValueChange?.(next); onChange?.({ target: { value: next }, currentTarget: { value: next } }); };
+  return <SelectPrimitive.Root value={value === undefined ? undefined : String(value)} defaultValue={defaultValue === undefined ? undefined : String(defaultValue)} onValueChange={changed} disabled={props.disabled}><SelectPrimitive.Trigger ref={ref} id={props.id} aria-label={props['aria-label']} className={`group relative flex w-full min-w-0 items-center justify-between rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-left text-sm text-[var(--ink)] shadow-[0_1px_2px_rgba(53,48,36,0.03)] hover:border-[#c8c0b3] focus:border-[#78a9ca] focus:outline-none focus:ring-2 focus:ring-[#dcecf7] disabled:cursor-not-allowed disabled:opacity-60 ${className}`}><span className="min-w-0 flex-1 truncate"><SelectPrimitive.Value /></span><svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" className="ml-2 h-4 w-4 shrink-0 text-[var(--muted)] transition-transform duration-200 group-data-[state=open]:rotate-180"><path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" /></svg></SelectPrimitive.Trigger><SelectPrimitive.Portal><SelectPrimitive.Content position="popper" sideOffset={6} className="z-50 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)] p-1 text-sm text-[var(--ink)] shadow-[0_12px_30px_rgba(53,48,36,0.14)]"><SelectPrimitive.Viewport>{options.map((option) => <SelectPrimitive.Item key={option.value} value={option.value} disabled={option.disabled} className="relative flex cursor-default select-none items-center rounded-lg py-2 pl-8 pr-3 outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-40 data-[highlighted]:bg-[#f0eee8]"><span className="absolute left-2"><SelectPrimitive.ItemIndicator>✓</SelectPrimitive.ItemIndicator></span><SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText></SelectPrimitive.Item>)}</SelectPrimitive.Viewport></SelectPrimitive.Content></SelectPrimitive.Portal></SelectPrimitive.Root>;
 });

@@ -44,7 +44,7 @@ export function RoomForm({ userId, profile }: { userId: string; profile: Profile
         </Field>
       </div>
       <div className="flex items-center gap-3">
-        <Button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save room'}</Button>
+<Button type="submit" loading={saving} loadingLabel="Saving…">Save room</Button>
         {message && <span className="text-sm text-zinc-500 dark:text-zinc-400">{message}</span>}
       </div>
     </form>

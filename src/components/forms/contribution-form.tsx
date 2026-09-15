@@ -5,6 +5,7 @@ import { clientSupabase } from '@/lib/supabase/client';
 import { addContribution, type ContributionRow } from '@/lib/db/queries';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Select } from '@/components/ui/select';
 import { Field } from '@/components/ui/field';
 import { formatCAD } from '@/lib/format';
@@ -56,9 +57,9 @@ export function ContributionForm({ userId, contributions }: { userId: string; co
     <div>
       <form onSubmit={add} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end" noValidate>
         <Field label="Amount (CAD)" htmlFor="contributionAmount"><Input id="contributionAmount" type="number" min={0} step="any" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
-        <Field label="Contribution date" htmlFor="contributionDate"><Input id="contributionDate" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+        <Field label="Contribution date" htmlFor="contributionDate"><DatePicker id="contributionDate" value={date} onChange={setDate} aria-label="Contribution date" /></Field>
         <Field label="Account" htmlFor="contributionAccount"><Select id="contributionAccount" value={account} onChange={(e) => setAccount(e.target.value as ContributionAccount)}><option value="TFSA">TFSA</option><option value="RRSP">RRSP</option><option value="CASH">Cash</option></Select></Field>
-        <Button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Log contribution'}</Button>
+        <Button type="submit" loading={busy} loadingLabel="Saving…">Log contribution</Button>
       </form>
       <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">This records an actual deposit for dashboard history. It does not update CRA room or add a holding automatically.</p>
       {message && <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400" role="status">{message}</p>}

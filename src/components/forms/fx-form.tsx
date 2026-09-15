@@ -54,7 +54,7 @@ export function FxForm({ userId, midRate, asOf, initialAmount, initialProvider, 
         <Field label="Live mid-rate" hint="CAD per USD, from Yahoo CAD=X."><div className="rounded-md border border-zinc-200 px-3 py-1.5 text-sm dark:border-zinc-700">{midRate.toFixed(4)} <span className="text-xs text-zinc-400">CAD/USD</span></div></Field>
         {provider === 'CUSTOM' ? <Field label="Custom rate" htmlFor="fx-custom" hint="CAD per USD."><Input id="fx-custom" type="number" min="0.000001" step="0.0001" value={customRate} onChange={(e) => setCustomRate(e.target.value)} /></Field> : <div />}
       </div>
-      <div className="mt-4 flex flex-wrap items-center gap-3"><Button onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save preference'}</Button>{message && <p className="text-sm text-zinc-500" role="status">{message}</p>}</div>
+      <div className="mt-4 flex flex-wrap items-center gap-3"><Button onClick={save} loading={saving} loadingLabel="Saving…">Save preference</Button>{message && <p className="text-sm text-zinc-500" role="status">{message}</p>}</div>
       <p className="mt-3 text-xs text-zinc-400">{asOf ? `Rate updated ${new Date(asOf).toLocaleString('en-CA')}.` : 'Live rate unavailable, using the latest available rate.'}</p>
     </Card>
 

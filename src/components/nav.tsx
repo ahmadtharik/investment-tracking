@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import { clientSupabase } from '@/lib/supabase/client';
 
 const LINKS = [
@@ -16,6 +17,14 @@ const LINKS = [
 
 export function Nav() {
   const pathname = usePathname();
+  const [pending, setPending] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => { setPending(false); if (timer.current) clearTimeout(timer.current); }, [pathname]);
+  const beginNavigation = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setPending(true), 180);
+  };
   return (
     <header className="border-b border-[var(--line)] bg-[var(--surface)]/95 backdrop-blur md:fixed md:inset-y-0 md:left-0 md:z-20 md:w-64 md:border-b-0 md:border-r">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3 md:block md:px-5 md:py-7">
@@ -27,7 +36,7 @@ export function Nav() {
           {LINKS.map((link) => {
             const active = pathname?.startsWith(link.href);
             return (
-              <Link
+              <Link onClick={beginNavigation}
                 key={link.href}
                 href={link.href}
                 className={`whitespace-nowrap rounded-xl px-3 py-2 text-sm transition-colors motion-reduce:transition-none md:block ${
@@ -41,6 +50,7 @@ export function Nav() {
             );
           })}
         </nav>
+        {pending && <p className="order-2 flex items-center gap-2 text-xs text-zinc-500 sm:order-none md:mt-5" role="status" aria-live="polite"><span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none" />Loading page…</p>}
         <button
           onClick={async () => {
             await clientSupabase().auth.signOut();
