@@ -36,20 +36,20 @@ export function projectSeries(input: ProjectionInput, months: number): Projectio
   const count = Math.max(0, Math.floor(months));
   const points: ProjectionPoint[] = [{ month: 0, value: input.starting, contributed: input.starting }];
   let value = input.starting;
+  let contributed = input.starting;
   for (let month = 1; month <= count; month += 1) {
     const contribution = input.contributionFrequency === 'yearly' ? (month % 12 === 0 ? input.monthlyContribution : 0) : annualContribution / 12;
     value = value * (1 + r) + contribution;
-    points.push({ month, value, contributed: input.starting + annualContribution * month / 12 });
+    contributed += contribution;
+    points.push({ month, value, contributed });
   }
   return points;
 }
 
 export function futureValue(input: ProjectionInput, years: number) {
   const months = Math.max(0, Math.floor(years * 12));
-  const value = projectSeries(input, months).at(-1)!.value;
-  const periods = { weekly: 52, biweekly: 26, monthly: 12, yearly: 1 }[input.contributionFrequency ?? 'monthly'];
-  const contributed = input.starting + input.monthlyContribution * periods * months / 12;
-  return { value, contributed, growth: value - input.starting };
+  const { value, contributed } = projectSeries(input, months).at(-1)!;
+  return { value, contributed, growth: value - contributed };
 }
 
 /**

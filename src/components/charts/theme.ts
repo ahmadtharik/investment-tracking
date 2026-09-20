@@ -7,9 +7,9 @@
  * which charts they appear in.
  */
 export const SERIES = {
-  TFSA: { light: '#2a78d6', dark: '#3987e5' },
-  RRSP: { light: '#eb6834', dark: '#d95926' },
-  CASH: { light: '#1baf7a', dark: '#199e70' },
+  TFSA: { light: '#2563EB', dark: '#3B82F6' },
+  RRSP: { light: '#F97316', dark: '#FB923C' },
+  CASH: { light: '#22C55E', dark: '#4ADE80' },
 } as const;
 
 /** Chart ink for the app's deliberately light, calm workspace. */
@@ -18,8 +18,8 @@ export function useChartColors() {
     TFSA: SERIES.TFSA.light,
     RRSP: SERIES.RRSP.light,
     CASH: SERIES.CASH.light,
-    text: '#52514e',
-    grid: '#ebe8e1',
-    axis: '#6f6b63',
+    text: '#334155',
+    grid: '#E2E8F0',
+    axis: '#64748B',
   };
 }

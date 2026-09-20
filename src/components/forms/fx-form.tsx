@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { convertCadToUsd, annualFxCost, FX_SPREADS, type FxProviderKey } from '@/lib/engine/fx';
@@ -19,6 +20,7 @@ const providerNames: Record<FxProviderKey, string> = { TD: 'TD (1.5% spread)', W
 const money = (n: number) => n.toLocaleString('en-CA', { style: 'currency', currency: 'CAD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function FxForm({ userId, midRate, asOf, initialAmount, initialProvider, initialRate, usdTickers }: FxFormProps) {
+  const router = useRouter();
   const colors = useChartColors();
   const [amount, setAmount] = useState(String(initialAmount || 550));
   const [provider, setProvider] = useState<FxProviderKey>(initialProvider || 'TD');
@@ -36,11 +38,12 @@ export function FxForm({ userId, midRate, asOf, initialAmount, initialProvider, 
   }), [cad, midRate, customRate]);
 
   async function save() {
-    if (!Number.isFinite(cad) || cad < 0 || rate <= 0) { setMessage('Enter a valid amount and rate.'); return; }
+    if (!amount.trim() || !Number.isFinite(Number(amount)) || Number(amount) < 0 || (provider === 'CUSTOM' && (!customRate.trim() || !Number.isFinite(Number(customRate)) || Number(customRate) <= 0))) { setMessage('Enter a valid amount and rate.'); return; }
     setSaving(true); setMessage('');
     try {
       const tickers = usdTickers.length ? usdTickers : ['VTI'];
       await saveFxPrefs(clientSupabase(), userId, tickers.map((ticker) => ({ ticker, provider, custom_rate: rate })));
+      router.refresh();
       setMessage('Saved. The dashboard will use this provider and rate for USD purchases.');
     } catch { setMessage('Could not save your preference. Check your connection and try again.'); }
     finally { setSaving(false); }

@@ -12,7 +12,7 @@ export function Label({
   return (
     <label
       htmlFor={htmlFor}
-      className={`block text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400 ${className}`}
+      className={`block text-xs font-medium tracking-wide text-[var(--text-muted)] ${className}`}
     >
       {children}
     </label>

@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { z } from 'zod';
 import { clientSupabase } from '@/lib/supabase/client';
@@ -98,6 +99,7 @@ const totalsReadout = (value: number, key: string) => (
 export function SettingsForm({ userId, profile, accountAlloc, etfAlloc, instruments }: SettingsFormProps) {
   const firstInstrumentId = instruments[0] ? String(instruments[0].id) : '';
 
+  const router = useRouter();
   const [monthlyIncome, setMonthlyIncome] = useState(String(profile.monthly_income ?? ''));
   const [monthlyExpenses, setMonthlyExpenses] = useState(String(profile.monthly_expenses ?? ''));
   const [emergencyFund, setEmergencyFund] = useState(String(profile.emergency_fund ?? ''));
@@ -170,9 +172,6 @@ export function SettingsForm({ userId, profile, accountAlloc, etfAlloc, instrume
         monthly_expenses: d.monthlyExpenses,
         emergency_fund: d.emergencyFund,
         emergency_target: d.emergencyTarget,
-        // Room is managed on the Accounts page — preserve the stored values.
-        tfsa_room: profile.tfsa_room,
-        rrsp_room: profile.rrsp_room,
       });
       await saveAccountAllocations(db, userId, [
         { account: 'TFSA', pct: d.tfsaPct / 100 },
@@ -184,6 +183,7 @@ export function SettingsForm({ userId, profile, accountAlloc, etfAlloc, instrume
         ...d.rrspEtf.map((r) => ({ account: 'RRSP' as const, instrument_id: r.instrumentId, pct: r.pct / 100 })),
       ]);
       setSavedAt(Date.now());
+      router.refresh();
       setTimeout(() => setSavedAt(null), 3000);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Could not save settings');

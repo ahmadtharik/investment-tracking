@@ -9,8 +9,8 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
     <input
       ref={ref}
       className={isRange
-        ? `w-full cursor-pointer accent-[#4c7895] focus:outline-none focus:ring-2 focus:ring-[#dcecf7] ${className}`
-        : `w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--ink)] placeholder:text-[var(--muted)] shadow-[0_1px_2px_rgba(53,48,36,0.03)] focus:border-[#78a9ca] focus:outline-none focus:ring-2 focus:ring-[#dcecf7] ${className}`}
+        ? `w-full cursor-pointer accent-[var(--color-primary)] focus:outline-none ${className}`
+        : `w-full rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface-card)] px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] shadow-sm focus:border-[var(--color-primary)] focus:outline-none ${className}`}
       {...props}
     />
   );

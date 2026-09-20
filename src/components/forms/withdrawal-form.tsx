@@ -29,15 +29,15 @@ export function WithdrawalForm({ userId, withdrawals }: { userId: string; withdr
     }
     setBusy(true); setMessage(null);
     try {
-      await addWithdrawal(clientSupabase(), userId, { account: 'TFSA', amount_cad: value, withdrawn_on: date, room_restored_in: year });
-      setRows((r) => [...r, { id: -Date.now(), account: 'TFSA', amount_cad: value, withdrawn_on: date, room_restored_in: year }]);
+      const saved = await addWithdrawal(clientSupabase(), userId, { account: 'TFSA', amount_cad: value, withdrawn_on: date, room_restored_in: year });
+      setRows((r) => [...r, saved].sort((a, b) => a.withdrawn_on.localeCompare(b.withdrawn_on)));
       setAmount(''); setMessage('Withdrawal added ✓');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not add withdrawal'); }
     finally { setBusy(false); }
   }
 
   async function remove(row: WithdrawalRow) {
-    if (row.id < 0) return;
+    if (!window.confirm('Remove this withdrawal record?')) return;
     setBusy(true); setMessage(null);
     try { await deleteWithdrawal(clientSupabase(), userId, row.id); setRows((r) => r.filter((x) => x.id !== row.id)); }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Could not remove withdrawal'); }

@@ -8,11 +8,11 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const VARIANTS = {
   primary:
-    'bg-[var(--accent)] text-white shadow-sm hover:-translate-y-px hover:bg-[#255d88]',
+    'bg-[var(--color-primary)] text-white shadow-sm hover:-translate-y-px hover:bg-[var(--color-primary-hover)]',
   secondary:
-    'border border-[var(--line)] bg-[var(--surface)] text-zinc-700 hover:-translate-y-px hover:bg-[#f1eee7]',
+    'border border-[var(--border)] bg-[var(--surface-card)] text-[var(--text-body)] hover:-translate-y-px hover:bg-[var(--color-primary-subtle)]',
   danger:
-    'border border-red-200 bg-[#fff8f7] text-red-700 hover:-translate-y-px hover:bg-red-50',
+    'border border-red-200 bg-[var(--danger-soft)] text-red-700 hover:-translate-y-px hover:bg-red-50',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
@@ -23,7 +23,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     <button
       ref={ref}
       type={type}
-      className={`inline-flex min-w-[6rem] items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${VARIANTS[variant]} ${className}`}
+      className={`inline-flex min-h-10 min-w-[6rem] items-center justify-center gap-2 rounded-[var(--radius-control)] px-3.5 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${VARIANTS[variant]} ${className}`}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       {...props}

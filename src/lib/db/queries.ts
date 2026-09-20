@@ -80,12 +80,12 @@ export async function getOrCreateProfile(client: SupabaseClient, userId: string)
   if (error) throw error;
   if (data) return data as Profile;
 
-  // TFSA room starts with the commonly quoted lifetime maximum only as an editable
-  // estimate. The Settings onboarding explains the eligibility assumptions.
+  // Never infer personal contribution eligibility from a lifetime maximum.
+  // New clients must enter their verified available room.
   // Ignore a concurrent initial insert, then read the canonical profile row.
   const { error: upsertError } = await client
     .from('profiles')
-    .upsert({ id: userId, tfsa_room: 109000, rrsp_room: 0 }, { onConflict: 'id', ignoreDuplicates: true });
+    .upsert({ id: userId, tfsa_room: 0, rrsp_room: 0 }, { onConflict: 'id', ignoreDuplicates: true });
   if (upsertError) throw upsertError;
   const { data: created, error: createdError } = await client
     .from('profiles')
@@ -99,9 +99,9 @@ export async function getOrCreateProfile(client: SupabaseClient, userId: string)
 export async function saveProfile(
   client: SupabaseClient,
   userId: string,
-  p: Omit<Profile, 'id'>
+  p: Partial<Omit<Profile, 'id'>>
 ): Promise<void> {
-  const { error } = await client.from('profiles').upsert({ id: userId, ...p }, { onConflict: 'id' });
+  const { error } = await client.from('profiles').update(p).eq('id', userId);
   if (error) throw error;
 }
 
@@ -121,12 +121,10 @@ export async function saveAccountAllocations(
   userId: string,
   rows: AccountAllocRow[]
 ): Promise<void> {
-  const { error } = await client.from('account_alloc').delete().eq('user_id', userId);
-  if (error) throw error;
-  if (rows.length === 0) return;
+  if (rows.length !== 3 || new Set(rows.map(r => r.account)).size !== 3 || rows.some(r => !Number.isFinite(r.pct) || r.pct < 0 || r.pct > 1) || Math.abs(rows.reduce((sum, r) => sum + r.pct, 0) - 1) > 0.0001) throw new Error('Provide TFSA, RRSP and Cash allocations totaling 100%.');
   const { error: insErr } = await client
     .from('account_alloc')
-    .insert(rows.map((r) => ({ user_id: userId, ...r })));
+    .upsert(rows.map((r) => ({ user_id: userId, ...r })), { onConflict: 'user_id,account' });
   if (insErr) throw insErr;
 }
 
@@ -144,13 +142,15 @@ export async function saveEtfAllocations(
   userId: string,
   rows: EtfAllocRow[]
 ): Promise<void> {
-  const { error } = await client.from('instrument_alloc').delete().eq('user_id', userId);
-  if (error) throw error;
-  if (rows.length === 0) return;
-  const { error: insErr } = await client
-    .from('instrument_alloc')
-    .insert(rows.map((r) => ({ user_id: userId, ...r })));
-  if (insErr) throw insErr;
+  const previous = await getEtfAllocations(client, userId);
+  if (rows.length > 0) {
+    const { error } = await client.from('instrument_alloc').upsert(rows.map(r => ({ user_id: userId, ...r })), { onConflict: 'user_id,account,instrument_id' });
+    if (error) throw error;
+  }
+  for (const old of previous.filter(p => !rows.some(r => r.account === p.account && r.instrument_id === p.instrument_id))) {
+    const { error } = await client.from('instrument_alloc').delete().eq('user_id', userId).eq('account', old.account).eq('instrument_id', old.instrument_id);
+    if (error) throw error;
+  }
 }
 
 // ── Instruments ───────────────────────────────────────────────────────
@@ -237,9 +237,58 @@ export async function addContribution(
   client: SupabaseClient,
   userId: string,
   c: Omit<ContributionRow, 'id'>
-): Promise<void> {
+): Promise<{ remainingRoom?: number }> {
+  if (!Number.isFinite(c.amount_cad) || c.amount_cad <= 0 || Math.abs(c.amount_cad * 100 - Math.round(c.amount_cad * 100)) > 0.000001) throw new Error('Enter a positive CAD amount with at most two decimal places.');
+  const atomic = await client.rpc('record_contribution', { p_contribution: c });
+  if (!atomic.error) return atomic.data as { remainingRoom?: number };
+  // Backward compatibility until migration 0002 is deployed. Never retry a
+  // failed transaction through the legacy path; only a missing function permits it.
+  if (atomic.error.code !== 'PGRST202') throw atomic.error;
+  // The saved room fields represent *currently available* registered-account
+  // room. Consume it when the corresponding real deposit is recorded. Cash is
+  // deliberately excluded because it has no contribution limit.
+  const roomColumn = c.account === 'TFSA' ? 'tfsa_room' : c.account === 'RRSP' ? 'rrsp_room' : null;
+  let previousRoom: number | undefined;
+  let remainingRoom: number | undefined;
+
+  if (roomColumn) {
+    const { data: profile, error: profileError } = await client
+      .from('profiles')
+      .select(roomColumn)
+      .eq('id', userId)
+      .single();
+    if (profileError) throw profileError;
+
+    previousRoom = Math.max(0, Number((profile as Record<string, unknown>)[roomColumn]) || 0);
+    if (c.amount_cad > previousRoom) {
+      throw new Error(`This ${c.account} contribution exceeds the available room of ${previousRoom.toFixed(2)} CAD.`);
+    }
+
+    remainingRoom = Math.round((previousRoom - c.amount_cad) * 100) / 100;
+    // Compare against the value we just read so a second browser tab cannot
+    // silently overwrite a more recent contribution-room update.
+    const { data: updatedProfile, error: roomError } = await client
+      .from('profiles')
+      .update({ [roomColumn]: remainingRoom })
+      .eq('id', userId)
+      .eq(roomColumn, previousRoom)
+      .select(roomColumn)
+      .maybeSingle();
+    if (roomError) throw roomError;
+    if (!updatedProfile) throw new Error('Contribution room changed. Please try again.');
+  }
+
   const { error } = await client.from('contributions').insert({ user_id: userId, ...c });
-  if (error) throw error;
+  if (error) {
+    // Best-effort compensation: only restore the value when nothing else has
+    // changed it after our conditional update.
+    if (roomColumn && previousRoom !== undefined && remainingRoom !== undefined) {
+      await client.from('profiles').update({ [roomColumn]: previousRoom }).eq('id', userId).eq(roomColumn, remainingRoom);
+    }
+    throw error;
+  }
+
+  return roomColumn ? { remainingRoom } : {};
 }
 
 export async function getWithdrawals(client: SupabaseClient, userId: string): Promise<WithdrawalRow[]> {
@@ -256,9 +305,10 @@ export async function addWithdrawal(
   client: SupabaseClient,
   userId: string,
   w: Omit<WithdrawalRow, 'id'>
-): Promise<void> {
-  const { error } = await client.from('withdrawals').insert({ user_id: userId, ...w });
+): Promise<WithdrawalRow> {
+  const { data, error } = await client.from('withdrawals').insert({ user_id: userId, ...w }).select('*').single();
   if (error) throw error;
+  return data as WithdrawalRow;
 }
 
 export async function deleteWithdrawal(client: SupabaseClient, userId: string, id: number): Promise<void> {

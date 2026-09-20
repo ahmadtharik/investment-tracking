@@ -19,9 +19,9 @@ export function Field({
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
       {error ? (
-        <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+        <p className="text-xs text-red-600">{error}</p>
       ) : hint ? (
-        <p className="text-xs text-zinc-400 dark:text-zinc-500">{hint}</p>
+        <p className="text-xs text-[var(--text-muted)]">{hint}</p>
       ) : null}
     </div>
   );

@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { futureValue, projectBankComparison, projectSeries } from '@/lib/engine/projection';
 
 describe('projection engine', () => {
+  it('only counts annual contributions when deposited and excludes deposits from growth', () => {
+    const input = { starting: 1000, monthlyContribution: 1200, annualReturn: 0, contributionFrequency: 'yearly' as const };
+    expect(projectSeries(input, 11).at(-1)?.contributed).toBe(1000);
+    expect(projectSeries(input, 12).at(-1)?.contributed).toBe(2200);
+    expect(futureValue(input, 1).growth).toBe(0);
+  });
   it('matches the monthly annuity formula', () => {
     const r = 0.07 / 12, months = 120;
     const expected = 10000 * (1 + r) ** months + 2000 * (((1 + r) ** months - 1) / r);

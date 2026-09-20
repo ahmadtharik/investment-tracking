@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
@@ -10,6 +11,7 @@ import { Select } from "@/components/ui/select";
 import { clientSupabase } from "@/lib/supabase/client";
 import {
   deleteHolding,
+  getHoldings,
   upsertHolding,
   type HoldingWithInstrument,
   type InstrumentRow,
@@ -206,6 +208,7 @@ export function HoldingsForm({
     });
   }
 
+  const router = useRouter();
   async function save(e: FormEvent) {
     e.preventDefault();
     if (!draft) return;
@@ -222,36 +225,17 @@ export function HoldingsForm({
         fx_provider: draft.fx_provider,
         fx_rate: Number(draft.fx_rate) || 1,
       };
+      if (!Number.isFinite(fields.units) || fields.units < 0 || !Number.isFinite(fields.balance_native) || fields.balance_native < 0 || !Number.isFinite(fields.fx_rate) || fields.fx_rate <= 0) throw new Error('Enter non-negative holdings and a positive exchange rate.');
       await upsertHolding(
         clientSupabase(),
         userId,
         draft.id ? { ...fields, id: draft.id } : fields,
       );
-      const next = draft.id
-        ? holdings.map((h) =>
-            h.id === draft.id
-              ? {
-                  ...h,
-                  ...fields,
-                  ticker: instrument.ticker,
-                  name: instrument.name,
-                  currency: instrument.currency,
-                }
-              : h,
-          )
-        : [
-            ...holdings,
-            {
-              ...fields,
-              id: Math.max(0, ...holdings.map((h) => h.id)) + 1,
-              ticker: instrument.ticker,
-              name: instrument.name,
-              currency: instrument.currency,
-            },
-          ];
+      const next = await getHoldings(clientSupabase(), userId);
       setHoldings(next);
       onChanged(next);
       setDraft(null);
+      router.refresh();
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Could not save holding",
@@ -271,6 +255,7 @@ export function HoldingsForm({
       const next = holdings.filter((x) => x.id !== h.id);
       setHoldings(next);
       onChanged(next);
+      router.refresh();
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Could not delete holding",
