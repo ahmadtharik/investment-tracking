@@ -1,6 +1,35 @@
 # Investment Planner
 
-Investment Planner is a private, multi-user Next.js app for turning monthly income and expenses into an investment plan. It supports TFSA/RRSP allocation, contribution-room tracking, holdings, CAD/USD FX calculations, projections, historical backtests, and live Yahoo Finance quotes.
+Investment Planner is a multi-user Next.js app for turning monthly income and expenses into an actionable investment plan. It supports TFSA/RRSP allocation, contribution-room tracking, holdings, CAD/USD FX calculations, projections, and live Yahoo Finance quotes.
+
+## Introduction
+
+Start with the public [Investment Planner landing page](https://investment-tracking-f9zp8ymt4-ahmad5-9270.vercel.app/). It introduces the product before visitors create an account or sign in, then guides them into the planning experience.
+
+![Investment Planner landing page](public/images/showcase/landing-page.png)
+
+## What it does
+
+- Converts a financial baseline into a monthly TFSA, RRSP, and cash allocation.
+- Tracks recorded contributions against the current plan and available registered-account room.
+- Keeps holdings and asset allocation in one place, with current CAD values.
+- Models long-term portfolio growth, contribution runway, scenarios, and milestones.
+
+## Product walkthrough
+
+The screenshots use fictional demo data. Financial projections are illustrative and are not investment advice.
+
+### Dashboard
+
+The dashboard provides a concise view of portfolio value, monthly progress, available contribution room, allocation, recent activity, and projected growth.
+
+![Investment Planner dashboard](public/images/showcase/dashboard.png)
+
+### Projections
+
+The Projections page presents long-term value estimates, a contribution-versus-growth breakdown, scenarios, and planning milestones.
+
+![Investment Planner projections](public/images/showcase/projections.png)
 
 ## Stack
 
