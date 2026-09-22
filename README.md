@@ -23,7 +23,7 @@ Investment Planner is a private, multi-user Next.js app for turning monthly inco
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY` (server-only; never expose it to the browser)
 
-3. Run [`src/db/migrations/0001_init.sql`](src/db/migrations/0001_init.sql) in the Supabase SQL editor. It creates the tables, policies, and starter instruments.
+3. Run [`src/db/migrations/0001_init.sql`](src/db/migrations/0001_init.sql), then [`src/db/migrations/0002_atomic_contributions.sql`](src/db/migrations/0002_atomic_contributions.sql), in the Supabase SQL editor. They create the schema, policies, starter instruments, and atomic contribution recording.
 
 4. Start the development server:
 
@@ -31,12 +31,10 @@ Investment Planner is a private, multi-user Next.js app for turning monthly inco
    npm run dev
    ```
 
-   Open http://localhost:3000 and create an account. Configure the app from Settings before using the dashboard.
+   Open http://localhost:3000 and create an account. Set your financial plan inputs on the Plan page before using the dashboard.
 
 Run checks with `npm test` and `npx tsc --noEmit`.
 
-## Deployment notes
+## Deployment
 
-The app deploys as a standard Next.js application on Vercel. Import the repository, set the three environment variables above for the required environments, and deploy. Keep the service-role key server-only. Run the Supabase migration before the first sign-in, then smoke-test sign-up, Settings, Dashboard, Portfolio, FX, Projections, and Rules on the deployed URL. Dynamic pages and market-data routes are intentionally configured to avoid stale personalized data.
-
-If Yahoo Finance is unavailable from a serverless region, retain the database cache and move the market fetch behind a trusted Supabase Edge Function or small proxy; do not call Yahoo directly from the browser.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the Vercel and Supabase setup, authentication redirects, and post-deployment checks. Keep the service-role key server-only.

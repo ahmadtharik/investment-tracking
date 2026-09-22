@@ -11,6 +11,7 @@ import { DashboardGrowthCard } from '@/components/dashboard/growth-card';
 import { AssetAllocationDonut, type AssetAllocationDatum } from '@/components/dashboard/asset-allocation-donut';
 import { DashboardGreeting } from '@/components/dashboard/dashboard-greeting';
 import { formatCAD, formatPct } from '@/lib/format';
+import { AppIcon, type AppIconName } from '@/components/ui/app-icon';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,16 +20,8 @@ const ACCOUNT_COLORS: Record<string, string> = { TFSA: '#2563EB', RRSP: '#F97316
 const CHART_COLORS = ['#2563EB', '#F97316', '#22C55E', '#8B5CF6', '#06B6D4'];
 
 function InlineIcon({ kind, bare = false, tone = 'blue' }: { kind: 'portfolio' | 'invested' | 'room' | 'savings' | 'account' | 'activity' | 'bulb'; bare?: boolean; tone?: 'blue' | 'orange' | 'green' }) {
-  const shapes = {
-    portfolio: <><path d="M4 19V9m5 10V5m5 14v-7m5 7V3" /><path d="m3 16 5-5 4 2 7-8" /></>,
-    invested: <><path d="M5 7h14v11H5z" /><path d="M8 7V5h8v2M8 12h8" /></>,
-    room: <><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3" /><path d="M12 4v2m8 6h-2m-6 8v-2m-8-6h2" /></>,
-    savings: <><path d="M12 3v18M17 7.5c0-1.4-1.8-2.5-4-2.5S9 6.1 9 7.5 10.6 10 13 10s4 1.1 4 2.5S15.2 15 13 15s-4-1.1-4-2.5" /></>,
-    account: <><rect x="5" y="5" width="14" height="14" rx="3" /><path d="M9 9h6M9 13h4" /></>,
-    activity: <><path d="M5 12h3l2-5 3 10 2-5h4" /></>,
-    bulb: <><path d="M9 18h6M10 21h4" /><path d="M8.5 14.5a6 6 0 1 1 7 0c-.9.7-1.5 1.5-1.5 2.5h-4c0-1-.6-1.8-1.5-2.5Z" /></>,
-  };
-  const icon = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">{shapes[kind]}</svg>;
+  const names: Record<typeof kind, AppIconName> = { portfolio: 'trend-up', invested: 'wallet', room: 'target', savings: 'percent', account: 'bank', activity: 'trend-up', bulb: 'lightbulb' };
+  const icon = <AppIcon name={names[kind]} className="h-5 w-5" strokeWidth={1.7} />;
   const tones = { blue: 'bg-[var(--color-primary-subtle)] text-[var(--color-primary)]', orange: 'bg-orange-50 text-orange-500', green: 'bg-emerald-50 text-emerald-600' };
   return bare ? icon : <span aria-hidden className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${tones[tone]}`}>{icon}</span>;
 }
@@ -104,10 +97,10 @@ export default async function DashboardPage() {
 
     <div className="mt-3 flex flex-wrap gap-2 rounded-[14px] border border-[var(--border)] bg-white p-3 shadow-[var(--shadow-card)]" aria-label="Quick actions">
       <span className="mr-1 self-center text-sm font-bold text-[var(--text-primary)]">Quick actions</span>
-      <Link href="/accounts/manage#record-contribution" className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-100">＋ Record contribution</Link>
-      <Link href="/plan" className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-100">☷ Adjust plan</Link>
-      <Link href="/portfolio#holding-editor" className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-100">＋ Add holding</Link>
-      <Link href="/accounts/manage#contribution-room" className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-100">◉ Review account room</Link>
+      <Link href="/accounts/manage#record-contribution" className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-100"><AppIcon name="plus" className="h-4 w-4" />Record contribution</Link>
+      <Link href="/plan" className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-100"><AppIcon name="sliders" className="h-4 w-4" />Adjust plan</Link>
+      <Link href="/portfolio#holding-editor" className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-100"><AppIcon name="plus" className="h-4 w-4" />Add holding</Link>
+      <Link href="/accounts/manage#contribution-room" className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-100"><AppIcon name="target" className="h-4 w-4" />Review account room</Link>
     </div>
 
     <section className="mt-4 grid items-stretch gap-4 xl:grid-cols-[410px_minmax(0,1fr)_305px]">

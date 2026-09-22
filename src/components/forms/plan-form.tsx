@@ -19,6 +19,7 @@ import { saveAccountAllocations, type AccountAllocRow } from "@/lib/db/queries";
 import { futureValue, projectSeries } from "@/lib/engine/projection";
 import { formatCAD, formatPct } from "@/lib/format";
 import { ContributionRunway } from "@/components/contribution-runway";
+import { AppIcon, type AppIconName } from "@/components/ui/app-icon";
 
 type AccountKey = AccountAllocRow["account"];
 type Contribution = { account: string; amount: number; date: string };
@@ -29,28 +30,28 @@ const ACCOUNTS: {
   label: string;
   color: string;
   soft: string;
-  icon: string;
+  icon: AppIconName;
 }[] = [
   {
     key: "TFSA",
     label: "TFSA",
     color: "#3B82F6",
     soft: "bg-blue-50 text-blue-600",
-    icon: "↗",
+    icon: "leaf",
   },
   {
     key: "RRSP",
     label: "RRSP",
     color: "#FB923C",
     soft: "bg-orange-50 text-orange-500",
-    icon: "▣",
+    icon: "bank",
   },
   {
     key: "CASH",
     label: "Cash",
     color: "#34C786",
     soft: "bg-emerald-50 text-emerald-600",
-    icon: "◉",
+    icon: "cash",
   },
 ];
 const HORIZONS = [5, 10, 20, 30] as const;
@@ -79,10 +80,10 @@ function allocationRows(
 }
 
 function Icon({
-  children,
+  name,
   tone = "blue",
 }: {
-  children: React.ReactNode;
+  name: AppIconName;
   tone?: "blue" | "green" | "orange";
 }) {
   const tones = {
@@ -95,15 +96,15 @@ function Icon({
       aria-hidden
       className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-lg font-bold ${tones[tone]}`}
     >
-      {children}
+      <AppIcon name={name} className="h-5 w-5" />
     </span>
   );
 }
 
-function ActionIcon({ children }: { children: React.ReactNode }) {
+function ActionIcon({ name }: { name: AppIconName }) {
   return (
     <span className="text-xl leading-none text-[var(--color-primary)]">
-      {children}
+      <AppIcon name={name} className="h-5 w-5" />
     </span>
   );
 }
@@ -286,7 +287,7 @@ export function PlanWorkspace({
           </p>
         </div>
         <div className="flex min-h-[62px] items-center gap-3 rounded-xl bg-[var(--color-primary-subtle)] px-4 py-3 lg:w-[550px]">
-          <Icon>◎</Icon>
+          <Icon name="target" />
           <div>
             <p className="text-sm font-bold text-emerald-700">
               {status === "on-track"
@@ -311,7 +312,7 @@ export function PlanWorkspace({
         <section className="rounded-[14px] border border-[var(--border)] bg-white p-3 shadow-[var(--shadow-card)]">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <Icon>▣</Icon>
+              <Icon name="plan" />
               <div>
                 <h2 className="text-[18px] font-bold text-[var(--text-primary)]">
                   {month} plan
@@ -589,14 +590,14 @@ export function PlanWorkspace({
           <h2 className="text-[16px] font-bold">Quick actions</h2>
           <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {[
-              { icon: "＋", label: "Record a contribution", href: "/accounts" },
+              { icon: "plus" as const, label: "Record a contribution", href: "/accounts" },
               {
-                icon: "☷",
+                icon: "sliders" as const,
                 label: "Adjust plan",
                 action: () => setEditing(true),
               },
-              { icon: "▣", label: "Set up rules", href: "/settings" },
-              { icon: "◉", label: "View accounts", href: "/accounts" },
+              { icon: "settings" as const, label: "Set up rules", href: "/settings" },
+              { icon: "accounts" as const, label: "View accounts", href: "/accounts" },
             ].map((action) =>
               action.href ? (
                 <Link
@@ -604,7 +605,7 @@ export function PlanWorkspace({
                   href={action.href}
                   className="flex min-h-[60px] flex-col justify-between rounded-lg border border-blue-100 bg-blue-50/60 p-2 text-[11px] font-semibold text-[var(--color-primary)]"
                 >
-                  <ActionIcon>{action.icon}</ActionIcon>
+                  <ActionIcon name={action.icon} />
                   {action.label}
                 </Link>
               ) : (
@@ -613,7 +614,7 @@ export function PlanWorkspace({
                   onClick={action.action}
                   className="flex min-h-[60px] flex-col justify-between rounded-lg border border-blue-100 bg-blue-50/60 p-2 text-left text-[11px] font-semibold text-[var(--color-primary)]"
                 >
-                  <ActionIcon>{action.icon}</ActionIcon>
+                  <ActionIcon name={action.icon} />
                   {action.label}
                 </button>
               ),
@@ -779,7 +780,7 @@ export function PlanWorkspace({
           <div className="mt-3 space-y-2">
             <Insight
               tone={status === "on-track" ? "green" : "orange"}
-              icon={status === "on-track" ? "✓" : "!"}
+              icon={status === "on-track" ? "check" : "alert"}
               title={
                 status === "on-track"
                   ? "You're on track"
@@ -793,13 +794,13 @@ export function PlanWorkspace({
             />
             <Insight
               tone="blue"
-              icon="↗"
+              icon="projections"
               title="Projection estimate"
               copy={`${formatCAD(projected.value)} is your estimated ${horizon}-year portfolio value at ${annualReturn}%.`}
             />
             <Insight
               tone="orange"
-              icon="⚙"
+              icon="settings"
               title="Plan stays editable"
               copy="Adjust allocation percentages whenever your monthly surplus changes."
             />
@@ -893,13 +894,13 @@ function Insight({
   copy,
 }: {
   tone: "blue" | "green" | "orange";
-  icon: string;
+  icon: AppIconName;
   title: string;
   copy: string;
 }) {
   return (
     <div className="flex gap-3 rounded-xl border border-[var(--border)] p-2.5">
-      <Icon tone={tone}>{icon}</Icon>
+      <Icon tone={tone} name={icon} />
       <div>
         <p className="text-xs font-bold text-[var(--text-primary)]">{title}</p>
         <p className="mt-0.5 text-[11px] leading-4 text-[var(--text-muted)]">

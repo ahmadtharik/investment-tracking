@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { clientSupabase } from '@/lib/supabase/client';
+import { AppIcon, type AppIconName } from '@/components/ui/app-icon';
 
 const LINKS = [
   { href: '/dashboard', label: 'Home', icon: 'home' },
@@ -13,22 +14,7 @@ const LINKS = [
   { href: '/projections', label: 'Projections', icon: 'projections' },
 ] as const;
 
-function Icon({ name }: { name: string }) {
-  const paths: Record<string, React.ReactNode> = {
-    home: <><path d="m4 10 8-6 8 6v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" /><path d="M9 20v-6h6v6" /></>,
-    plan: <><circle cx="12" cy="12" r="8" /><path d="M12 8v8m-4-4h8" /></>,
-    portfolio: <><path d="M4 18V6m0 12h16" /><path d="m7 14 3-3 3 2 5-6" /></>,
-    accounts: <><rect x="4" y="5" width="16" height="14" rx="2" /><path d="M8 9h8M8 13h5" /></>,
-    projections: <><path d="M5 19 19 5M10 5h9v9" /><path d="M5 8v11h11" /></>,
-    settings: <><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" /><path d="m19.4 15 .1.1-1.5 2.6-.2-.1a2 2 0 0 0-2.1.1l-.2.1a2 2 0 0 0-1 1.8v.2h-3v-.2a2 2 0 0 0-1.1-1.8l-.2-.1a2 2 0 0 0-2.1-.1l-.2.1-1.5-2.6.1-.1a2 2 0 0 0 .9-1.9v-.2a2 2 0 0 0-.9-1.8l-.1-.1 1.5-2.6.2.1a2 2 0 0 0 2.1-.1l.2-.1a2 2 0 0 0 1.1-1.8V6h3v.2a2 2 0 0 0 1 1.8l.2.1a2 2 0 0 0 2.1.1l.2-.1 1.5 2.6-.1.1a2 2 0 0 0-.9 1.8v.2a2 2 0 0 0 .9 1.9Z" /></>,
-    search: <><circle cx="10.8" cy="10.8" r="6.3" /><path d="m16 16 4 4" /></>,
-    calendar: <><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4m8-4v4M4 10h16" /></>,
-    bell: <><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 8h18c0-1-3-1-3-8ZM10 21h4" /></>,
-    chevron: <path d="m8 10 4 4 4-4" />,
-    compass: <><circle cx="12" cy="12" r="9" /><path d="m15.5 8.5-2 4-4 2 2-4z" /></>,
-  };
-  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">{paths[name] ?? paths.home}</svg>;
-}
+function Icon({ name }: { name: string }) { return <AppIcon name={name as AppIconName} />; }
 
 type SearchItem = { id: string; group: 'Pages' | 'Accounts' | 'Holdings' | 'Actions'; title: string; detail: string; href: string; icon: string };
 
@@ -85,7 +71,7 @@ export function Nav({ profileName = 'Your profile', searchItems = [] }: { profil
       <Link href="/dashboard" className="flex items-center gap-3 px-2 text-[var(--text-primary)]" aria-label="Investment Planner home"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--color-primary)] text-white"><Icon name="compass" /></span><span className="text-[16px] font-bold leading-5 tracking-tight">Investment<br />Planner</span></Link>
       <nav aria-label="Primary navigation" className="mt-6 space-y-1">{LINKS.map(navLink)}<div className="my-5 border-t border-[var(--border)]" />{navLink({ href: '/settings', label: 'Settings', icon: 'settings' })}</nav>
       <div className="mt-auto border-t border-[var(--border)] pt-4">
-        <button type="button" onClick={() => setProfileOpen((open) => !open)} aria-expanded={profileOpen} aria-haspopup="menu" className="flex min-h-12 w-full items-center gap-3 rounded-xl px-2 text-left hover:bg-[var(--surface-page)]"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--color-primary-soft)] text-xs font-bold text-[var(--color-primary)]">{initials}</span><span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--text-primary)]">{profileName}</span><span className="text-[var(--text-muted)]"><Icon name="chevron" /></span></button>
+        <button type="button" onClick={() => setProfileOpen((open) => !open)} aria-expanded={profileOpen} aria-haspopup="menu" className="flex min-h-12 w-full items-center gap-3 rounded-xl px-2 text-left hover:bg-[var(--surface-page)]"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--color-primary-soft)] text-xs font-bold text-[var(--color-primary)]">{initials}</span><span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--text-primary)]">{profileName}</span><span className="text-[var(--text-muted)]"><Icon name="chevron-down" /></span></button>
         {profileOpen && <div role="menu" className="mt-2 rounded-xl border border-[var(--border)] bg-white p-1 shadow-[var(--shadow-modal)]"><button role="menuitem" type="button" onClick={async () => { await clientSupabase().auth.signOut(); window.location.href = '/login'; }} className="w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--text-body)] hover:bg-[var(--surface-page)]">Sign out</button></div>}
       </div>
     </aside>
