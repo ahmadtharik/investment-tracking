@@ -4,7 +4,7 @@ Investment Planner is a multi-user Next.js app for turning monthly income and ex
 
 ## Introduction
 
-Start with the public [Investment Planner landing page](https://investment-tracking-f9zp8ymt4-ahmad5-9270.vercel.app/). It introduces the product before visitors create an account or sign in, then guides them into the planning experience.
+Start with the public [Investment Planner landing page](https://investment-tracking-rb8yhixuu-ahmad5-9270.vercel.app/). It introduces the product before visitors create an account or sign in, then guides them into the planning experience.
 
 ![Investment Planner landing page](public/images/showcase/landing-page.png)
 
