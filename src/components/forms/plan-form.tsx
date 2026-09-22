@@ -359,7 +359,7 @@ export function PlanWorkspace({
                     <span
                       className={`grid h-8 w-8 place-items-center rounded-full text-sm font-bold ${account.soft}`}
                     >
-                      {account.icon}
+                      <AppIcon name={account.icon} className="h-5 w-5" />
                     </span>
                     <span className="text-sm font-semibold text-[var(--text-primary)]">
                       {account.label}
