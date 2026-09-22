@@ -1,5 +1,7 @@
 # Investment Planner
 
+[![CI](https://github.com/ahmadtharik/investment-tracking/actions/workflows/ci.yml/badge.svg)](https://github.com/ahmadtharik/investment-tracking/actions/workflows/ci.yml)
+
 Investment Planner is a multi-user Next.js app for turning monthly income and expenses into an actionable investment plan. It supports TFSA/RRSP allocation, contribution-room tracking, holdings, CAD/USD FX calculations, projections, and live Yahoo Finance quotes.
 
 ## Introduction
@@ -38,6 +40,24 @@ The Projections page presents long-term value estimates, a contribution-versus-g
 - Yahoo Finance server-side market data with a short-lived database cache
 - Recharts for interactive charts and Vitest for engine tests
 
+## Architecture
+
+```mermaid
+flowchart LR
+  Browser[Browser] --> App[Next.js App Router]
+  App --> Auth[Supabase Auth]
+  App --> Database[Supabase Postgres]
+  App --> Market[Server-side market data routes]
+  Market --> Yahoo[Yahoo Finance]
+```
+
+## Engineering decisions
+
+- **Per-user data isolation:** Supabase row-level security policies scope profiles, allocations, holdings, contributions, withdrawals, and preferences to the authenticated user.
+- **Server-only privileged access:** the Supabase service-role key stays on the server and is never exposed through a `NEXT_PUBLIC_` variable.
+- **Consistent contribution updates:** contribution recording uses a database migration designed to update contribution history and registered-account room together.
+- **Planning, not execution:** the app tracks user-entered information; it does not connect to brokerages, place trades, move money, or offer investment advice.
+
 ## Local setup
 
 1. Install Node.js (the project is tested with Node 20+), then install dependencies:
@@ -67,3 +87,7 @@ Run checks with `npm test` and `npx tsc --noEmit`.
 ## Deployment
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for the Vercel and Supabase setup, authentication redirects, and post-deployment checks. Keep the service-role key server-only.
+
+## Contributing and security
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local development and pull-request expectations. See [SECURITY.md](SECURITY.md) for responsible vulnerability reporting.
