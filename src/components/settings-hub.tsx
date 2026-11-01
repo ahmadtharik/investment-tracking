@@ -1,6 +1,7 @@
 'use client';
 
 import { ProfileEditor } from '@/components/profile-editor';
+import { DeleteAccount } from '@/components/delete-account';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import type { AccountAllocRow } from '@/lib/db/queries';
@@ -68,7 +69,7 @@ export function SettingsHub({ userId, displayName, email, accountAlloc }: Settin
 
     <div className="space-y-3">
       
-      <section className="rounded-[var(--radius-card)] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]"><h2 className="text-base font-semibold">Privacy & Security</h2><p className="mt-0.5 text-sm text-[var(--text-muted)]">Manage your data and account security.</p><div className="mt-3 space-y-2"><Row icon="shield" title="Change password" copy="Set a new password for your account." href="/update-password" /><a href="/api/account/export" download className="flex items-center gap-2 rounded-lg border border-[var(--border)] p-3 text-sm font-semibold text-blue-600"><AppIcon name="download" className="h-5 w-5" />Download my data (JSON)</a></div>{securityMessage && <p role="status" className="mt-3 text-sm text-[var(--text-muted)]">{securityMessage}</p>}</section>
+      <section className="rounded-[var(--radius-card)] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]"><h2 className="text-base font-semibold">Privacy & Security</h2><p className="mt-0.5 text-sm text-[var(--text-muted)]">Manage your data and account security.</p><div className="mt-3 space-y-2"><Row icon="shield" title="Change password" copy="Set a new password for your account." href="/update-password" /><a href="/api/account/export" download className="flex items-center gap-2 rounded-lg border border-[var(--border)] p-3 text-sm font-semibold text-blue-600"><AppIcon name="download" className="h-5 w-5" />Download my data (JSON)</a><DeleteAccount /></div>{securityMessage && <p role="status" className="mt-3 text-sm text-[var(--text-muted)]">{securityMessage}</p>}</section>
       
     </div>
 
