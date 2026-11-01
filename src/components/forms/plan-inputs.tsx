@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { clientSupabase } from '@/lib/supabase/client';
 import { saveProfile, saveEtfAllocations, type Profile, type EtfAllocRow, type InstrumentRow, type AccountAllocRow } from '@/lib/db/queries';
+import { settleBeforePlanChange } from '@/lib/schedule/client';
 import { formatCAD } from '@/lib/format';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,7 @@ export function FinancialBaseline({ userId, profile }: { userId: string; profile
     if (fields.some(([key]) => draft[key].trim() === '' || !Number.isFinite(Number(draft[key])) || Number(draft[key]) < 0)) { setError('Enter a non-negative amount for each field. Use 0 if it does not apply.'); return; }
     setBusy(true);
     try {
+      await settleBeforePlanChange();
       await saveProfile(clientSupabase(), userId, values);
       setSaved(values); setEditing(false); setNotice('Financial baseline saved.'); router.refresh();
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save your financial baseline.'); }
@@ -71,6 +73,7 @@ export function PlannedPurchases({ userId, allocations, instruments, accountAllo
     }
     setBusy(true);
     try {
+      await settleBeforePlanChange();
       await saveEtfAllocations(clientSupabase(),userId,draft.map(row=>({account:row.account,instrument_id:Number(row.instrument),pct:Number(row.pct)/100})));
       setSaved(draft.map(row=>({...row}))); setEditing(false); setNotice('Planned purchases saved.'); router.refresh();
     } catch(cause) { setError(cause instanceof Error ? cause.message : 'Could not save planned purchases.'); }

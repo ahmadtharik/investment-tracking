@@ -72,7 +72,7 @@ flowchart LR
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY` (server-only; never expose it to the browser)
 
-3. Run [`src/db/migrations/0001_init.sql`](src/db/migrations/0001_init.sql), then [`src/db/migrations/0002_atomic_contributions.sql`](src/db/migrations/0002_atomic_contributions.sql), in the Supabase SQL editor. They create the schema, policies, starter instruments, and atomic contribution recording.
+3. Run [`src/db/migrations/0001_init.sql`](src/db/migrations/0001_init.sql), [`src/db/migrations/0002_atomic_contributions.sql`](src/db/migrations/0002_atomic_contributions.sql), [`src/db/migrations/0003_contribution_schedule.sql`](src/db/migrations/0003_contribution_schedule.sql), [`src/db/migrations/0004_security_and_names.sql`](src/db/migrations/0004_security_and_names.sql), [`src/db/migrations/0005_holding_cost_and_edit.sql`](src/db/migrations/0005_holding_cost_and_edit.sql), [`src/db/migrations/0006_room_history.sql`](src/db/migrations/0006_room_history.sql), then [`src/db/migrations/0007_portfolio_snapshots.sql`](src/db/migrations/0007_portfolio_snapshots.sql), in the Supabase SQL editor. They create the schema, policies, starter instruments, and atomic contribution recording.
 
 4. Start the development server:
 

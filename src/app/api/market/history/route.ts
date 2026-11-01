@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getHistory } from '@/lib/market/yahoo';
 
+import { isSignedIn } from '@/lib/supabase/api-auth';
+
 export const dynamic = 'force-dynamic';
 
 /** GET /api/market/history?ticker=XEQT.TO&period=5y  (period: 1y|2y|5y|max) */
 export async function GET(request: NextRequest) {
+  if (!(await isSignedIn())) return NextResponse.json({ error: 'Sign in required' }, { status: 401 });
   const ticker = request.nextUrl.searchParams.get('ticker');
   const period = (request.nextUrl.searchParams.get('period') ?? '5y') as '1y' | '2y' | '5y' | 'max';
   if (!ticker) {

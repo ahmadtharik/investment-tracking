@@ -10,13 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { clientSupabase } from "@/lib/supabase/client";
 import {
-  deleteHolding,
   getHoldings,
   upsertHolding,
   type HoldingWithInstrument,
   type InstrumentRow,
 } from "@/lib/db/queries";
-import { formatCAD, formatUSD } from "@/lib/format";
+import { USD_CAD_TICKER } from "@/lib/valuation";
 
 type Quote = { price: number; currency: string; asOf?: string };
 type Result = { ticker: string; name: string };
@@ -29,14 +28,17 @@ type Draft = {
   balance_native: string;
   fx_provider: string;
   fx_rate: string;
+  cost: string;
 };
-type Mutation = "instrument" | "save" | "delete" | null;
+type Mutation = "instrument" | "save" | null;
 type Props = {
   userId: string;
   instruments: InstrumentRow[];
   holdings: HoldingWithInstrument[];
   quotes: Record<string, Quote>;
+  editHolding?: HoldingWithInstrument | null;
   onChanged: (holdings: HoldingWithInstrument[]) => void;
+  onCancel: () => void;
 };
 
 const emptyDraft = (instrument_id: number): Draft => ({
@@ -46,21 +48,31 @@ const emptyDraft = (instrument_id: number): Draft => ({
   balance_native: "",
   fx_provider: "TD",
   fx_rate: "1",
+  cost: "",
 });
-const valueFor = (h: HoldingWithInstrument, quote?: Quote) =>
-  (quote ? h.units * quote.price : h.balance_native) *
-  (h.currency === "USD" ? h.fx_rate : 1);
+const toDraft = (h: HoldingWithInstrument): Draft => ({
+  id: h.id,
+  instrument_id: h.instrument_id,
+  account: h.account as Account,
+  units: String(h.units),
+  balance_native: String(h.balance_native),
+  fx_provider: h.fx_provider,
+  fx_rate: String(h.fx_rate),
+  cost: h.cost_cad == null ? "" : String(h.cost_cad),
+});
 
 export function HoldingsForm({
   userId,
   instruments: initialInstruments,
   holdings: initialHoldings,
   quotes,
+  editHolding,
   onChanged,
+  onCancel,
 }: Props) {
   const [instruments, setInstruments] = useState(initialInstruments);
   const [holdings, setHoldings] = useState(initialHoldings);
-  const [draft, setDraft] = useState<Draft | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(editHolding ? toDraft(editHolding) : null);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<Result[]>([]);
   const [searching, setSearching] = useState(false);
@@ -69,7 +81,6 @@ export function HoldingsForm({
   const [manualName, setManualName] = useState("");
   const [manualCurrency, setManualCurrency] = useState<"CAD" | "USD">("CAD");
   const [mutation, setMutation] = useState<Mutation>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [previewQuote, setPreviewQuote] = useState<Quote | null>(null);
   const selected = useMemo(
@@ -151,7 +162,7 @@ export function HoldingsForm({
         ? {
             ...d,
             instrument_id: id,
-            fx_rate: i?.currency === "USD" ? "1.36" : "1",
+            fx_rate: i?.currency === "USD" ? String(quotes[USD_CAD_TICKER]?.price ?? 1.36) : "1",
           }
         : d,
     );
@@ -196,18 +207,6 @@ export function HoldingsForm({
     }
   }
 
-  function edit(h: HoldingWithInstrument) {
-    setDraft({
-      id: h.id,
-      instrument_id: h.instrument_id,
-      account: h.account as Account,
-      units: String(h.units),
-      balance_native: String(h.balance_native),
-      fx_provider: h.fx_provider,
-      fx_rate: String(h.fx_rate),
-    });
-  }
-
   const router = useRouter();
   async function save(e: FormEvent) {
     e.preventDefault();
@@ -224,12 +223,19 @@ export function HoldingsForm({
         balance_native: Number(draft.balance_native) || 0,
         fx_provider: draft.fx_provider,
         fx_rate: Number(draft.fx_rate) || 1,
+        cost_cad: draft.cost.trim() === "" ? null : Number(draft.cost),
       };
+      if (fields.cost_cad !== null && (!Number.isFinite(fields.cost_cad) || fields.cost_cad < 0)) throw new Error("Enter a non-negative total cost, or leave it blank.");
+      const existing = holdings.find((h) => h.instrument_id === fields.instrument_id && h.account === fields.account && h.id !== draft.id);
+      if (existing && draft.id) throw new Error(`You already have ${existing.ticker} in ${existing.account}. Edit that holding instead.`);
       if (!Number.isFinite(fields.units) || fields.units < 0 || !Number.isFinite(fields.balance_native) || fields.balance_native < 0 || !Number.isFinite(fields.fx_rate) || fields.fx_rate <= 0) throw new Error('Enter non-negative holdings and a positive exchange rate.');
       await upsertHolding(
         clientSupabase(),
         userId,
-        draft.id ? { ...fields, id: draft.id } : fields,
+        // Adding a stock you already hold in that account tops up the existing holding.
+        existing
+          ? { ...fields, id: existing.id, units: existing.units + fields.units, balance_native: existing.balance_native + fields.balance_native, cost_cad: existing.cost_cad != null && fields.cost_cad !== null ? Number(existing.cost_cad) + fields.cost_cad : null }
+          : draft.id ? { ...fields, id: draft.id } : fields,
       );
       const next = await getHoldings(clientSupabase(), userId);
       setHoldings(next);
@@ -245,111 +251,18 @@ export function HoldingsForm({
     }
   }
 
-  async function remove(h: HoldingWithInstrument) {
-    if (!window.confirm(`Delete ${h.ticker} holding?`)) return;
-    setMutation("delete");
-    setDeletingId(h.id);
-    setMessage(null);
-    try {
-      await deleteHolding(clientSupabase(), userId, h.id);
-      const next = holdings.filter((x) => x.id !== h.id);
-      setHoldings(next);
-      onChanged(next);
-      router.refresh();
-    } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Could not delete holding",
-      );
-    } finally {
-      setMutation(null);
-      setDeletingId(null);
-    }
-  }
-
   const manualTicker = search.trim().toUpperCase();
   const currentQuote = selected
     ? (quotes[selected.ticker] ?? previewQuote)
     : null;
   const updateDraft = (field: keyof Draft, value: string) =>
     setDraft((d) => ({
-      ...(d ?? emptyDraft(instruments[0]?.id ?? 0)),
+      ...(d ?? emptyDraft(0)),
       [field]: value,
     }));
 
   return (
     <div className="space-y-6">
-      <Card
-        title="Holdings"
-        description="A record of investments you already own, not planned monthly purchases."
-      >
-        <p className="mb-4 text-xs text-zinc-500">
-          Add or update a holding after a real purchase. It does not change
-          contribution room automatically; record your contribution separately
-          so it matches your CRA and brokerage records.
-        </p>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-500 dark:border-zinc-800">
-              <tr>
-                <th className="pb-2">Instrument</th>
-                <th className="pb-2">Account</th>
-                <th className="pb-2">Units</th>
-                <th className="pb-2">Native balance</th>
-                <th className="pb-2">Live CAD value</th>
-                <th className="pb-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {holdings.map((h) => (
-                <tr
-                  key={h.id}
-                  className="border-b border-zinc-100 dark:border-zinc-900"
-                >
-                  <td className="py-3">
-                    <div className="font-medium">{h.ticker}</div>
-                    <div className="text-xs text-zinc-500">{h.name}</div>
-                  </td>
-                  <td>{h.account}</td>
-                  <td className="tabular-nums">{h.units.toLocaleString()}</td>
-                  <td className="tabular-nums">
-                    {h.currency === "USD"
-                      ? formatUSD(h.balance_native)
-                      : formatCAD(h.balance_native)}
-                  </td>
-                  <td className="tabular-nums">
-                    {formatCAD(valueFor(h, quotes[h.ticker]))}
-                  </td>
-                  <td>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="secondary"
-                        onClick={() => edit(h)}
-                        disabled={hasMutation}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="danger"
-                        onClick={() => remove(h)}
-                        disabled={hasMutation && deletingId !== h.id}
-                        loading={mutation === "delete" && deletingId === h.id}
-                        loadingLabel="Deleting…"
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {holdings.length === 0 && (
-            <p className="py-8 text-center text-sm text-zinc-500">
-              No holdings yet. Add an investment after you make a purchase.
-            </p>
-          )}
-        </div>
-      </Card>
       <Card title={draft?.id ? "Edit holding" : "Add holding"}>
         {message && (
           <p className="mb-3 rounded-md bg-red-50 p-2 text-sm text-red-700">
@@ -367,7 +280,7 @@ export function HoldingsForm({
                 onChange={(e) => {
                   setSearch(e.target.value);
                   setManual(false);
-                  if (!draft) setDraft(emptyDraft(instruments[0]?.id ?? 0));
+                  if (!draft) setDraft(emptyDraft(0));
                 }}
                 placeholder="Search ticker or name"
                 required
@@ -497,6 +410,18 @@ export function HoldingsForm({
               onChange={(e) => updateDraft("balance_native", e.target.value)}
             />
           </Field>
+          <Field
+            label="Total cost (CAD)"
+            hint="What you paid in total. Optional, but needed for Total return and Gain/Loss."
+          >
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={draft?.cost ?? ""}
+              onChange={(e) => updateDraft("cost", e.target.value)}
+            />
+          </Field>
           {selected && (
             <Field label="Current price">
               <Input
@@ -527,7 +452,7 @@ export function HoldingsForm({
                   type="number"
                   min="0"
                   step="0.000001"
-                  value={draft?.fx_rate ?? "1.36"}
+                  value={draft?.fx_rate ?? String(quotes[USD_CAD_TICKER]?.price ?? 1.36)}
                   onChange={(e) => updateDraft("fx_rate", e.target.value)}
                 />
               </Field>
@@ -542,16 +467,14 @@ export function HoldingsForm({
             >
               {draft?.id ? "Save changes" : "Add holding"}
             </Button>
-            {draft?.id && (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setDraft(null)}
-                disabled={hasMutation}
-              >
-                Cancel
-              </Button>
-            )}
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onCancel}
+              disabled={hasMutation}
+            >
+              Cancel
+            </Button>
           </div>
         </form>
       </Card>

@@ -42,7 +42,7 @@ export function FxForm({ userId, midRate, asOf, initialAmount, initialProvider, 
     setSaving(true); setMessage('');
     try {
       const tickers = usdTickers.length ? usdTickers : ['VTI'];
-      await saveFxPrefs(clientSupabase(), userId, tickers.map((ticker) => ({ ticker, provider, custom_rate: rate })));
+      await saveFxPrefs(clientSupabase(), userId, tickers.map((ticker) => ({ ticker, provider, custom_rate: provider === 'CUSTOM' ? rate : null })));
       router.refresh();
       setMessage('Saved. The dashboard will use this provider and rate for USD purchases.');
     } catch { setMessage('Could not save your preference. Check your connection and try again.'); }

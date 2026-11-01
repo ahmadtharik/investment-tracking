@@ -39,6 +39,7 @@ export interface HoldingRow {
   balance_native: number;
   fx_provider: string;
   fx_rate: number;
+  cost_cad?: number | null;
 }
 
 export interface HoldingWithInstrument extends HoldingRow {
@@ -57,6 +58,36 @@ export interface ContributionRow {
   fx_cost_cad: number | null;
   amount_native: number | null;
   contributed_on: string;
+  units?: number | null;
+  source?: 'manual' | 'auto' | 'early';
+  cycle_due_on?: string | null;
+}
+
+export interface ScheduleRow {
+  day_of_month: number;
+  next_due: string;
+  paused: boolean;
+}
+
+export interface CycleRow {
+  id: number;
+  due_on: string;
+  status: 'auto' | 'early' | 'manual' | 'skipped';
+  note: string | null;
+  reviewed: boolean;
+}
+
+/** One contribution as sent to the database functions in migration 0003. */
+export interface ContributionLine {
+  account: string;
+  instrument_id: number | null;
+  amount_cad: number;
+  contributed_on: string;
+  units?: number | null;
+  price_native?: number | null;
+  amount_native?: number | null;
+  fx_rate?: number | null;
+  allow_over?: boolean;
 }
 
 export interface WithdrawalRow {
@@ -65,6 +96,16 @@ export interface WithdrawalRow {
   amount_cad: number;
   withdrawn_on: string;
   room_restored_in: number | null;
+  restored?: boolean;
+}
+
+export interface RoomEventRow {
+  id: number;
+  account: 'TFSA' | 'RRSP';
+  kind: 'new_limit' | 'restored' | 'adjustment';
+  amount_cad: number;
+  effective_on: string;
+  note: string | null;
 }
 
 export interface FxPrefRow {
@@ -161,18 +202,21 @@ export async function listInstruments(client: SupabaseClient): Promise<Instrumen
   return (data ?? []) as InstrumentRow[];
 }
 
-/** Service-role only: API route adds tickers discovered via Yahoo search. */
+/**
+ * Service-role only: API route adds tickers discovered via Yahoo search. The list
+ * is shared, so an existing ticker is returned as is and never renamed by a user.
+ */
 export async function upsertInstrument(
   client: SupabaseClient,
   ticker: string,
   name: string,
   currency: string
 ): Promise<InstrumentRow> {
-  const { data, error } = await client
+  const { error: insertError } = await client
     .from('instruments')
-    .upsert({ ticker, name, currency }, { onConflict: 'ticker' })
-    .select('*')
-    .single();
+    .upsert({ ticker, name, currency }, { onConflict: 'ticker', ignoreDuplicates: true });
+  if (insertError) throw insertError;
+  const { data, error } = await client.from('instruments').select('*').eq('ticker', ticker).single();
   if (error) throw error;
   return data as InstrumentRow;
 }
@@ -183,7 +227,8 @@ export async function getHoldings(client: SupabaseClient, userId: string): Promi
   const { data, error } = await client
     .from('holdings')
     .select('*, instruments(ticker, name, currency)')
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .order('id');
   if (error) throw error;
   return (data ?? []).map((h: any) => ({
     id: h.id,
@@ -193,6 +238,7 @@ export async function getHoldings(client: SupabaseClient, userId: string): Promi
     balance_native: h.balance_native,
     fx_provider: h.fx_provider,
     fx_rate: h.fx_rate,
+    cost_cad: h.cost_cad,
     ticker: h.instruments?.ticker,
     name: h.instruments?.name,
     currency: h.instruments?.currency,
@@ -291,6 +337,94 @@ export async function addContribution(
   return roomColumn ? { remainingRoom } : {};
 }
 
+// ── Contribution schedule ─────────────────────────────────────────────
+
+/** Null when no schedule is set, or until migration 0003 is applied. */
+export async function getSchedule(client: SupabaseClient, userId: string): Promise<ScheduleRow | null> {
+  const { data, error } = await client.from('contribution_schedules').select('day_of_month, next_due, paused').eq('user_id', userId).maybeSingle();
+  if (error) return null;
+  return data as ScheduleRow | null;
+}
+
+export async function saveSchedule(client: SupabaseClient, userId: string, schedule: ScheduleRow): Promise<void> {
+  const { error } = await client.from('contribution_schedules').upsert({ user_id: userId, ...schedule }, { onConflict: 'user_id' });
+  if (error) throw error;
+}
+
+export async function getCycles(client: SupabaseClient, userId: string, limit = 12): Promise<CycleRow[]> {
+  const { data, error } = await client.from('contribution_cycles').select('id, due_on, status, note, reviewed').eq('user_id', userId).order('due_on', { ascending: false }).limit(limit);
+  if (error) return [];
+  return (data ?? []) as CycleRow[];
+}
+
+export async function markCyclesReviewed(client: SupabaseClient, userId: string): Promise<void> {
+  const { error } = await client.from('contribution_cycles').update({ reviewed: true }).eq('user_id', userId).eq('reviewed', false);
+  if (error) throw error;
+}
+
+export async function resolveCycle(
+  client: SupabaseClient,
+  c: { due: string; status: CycleRow['status']; lines: ContributionLine[]; nextDue: string; note?: string }
+): Promise<{ applied: boolean; total?: number }> {
+  const { data, error } = await client.rpc('resolve_cycle', { p_due: c.due, p_status: c.status, p_lines: c.lines, p_next_due: c.nextDue, p_note: c.note ?? null });
+  if (error) throw error;
+  return data as { applied: boolean; total?: number };
+}
+
+export async function undoCycle(client: SupabaseClient, due: string): Promise<void> {
+  const { error } = await client.rpc('undo_cycle', { p_due: due });
+  if (error) throw error;
+}
+
+export async function recordPurchase(client: SupabaseClient, userId: string, line: ContributionLine): Promise<void> {
+  const { error } = await client.rpc('record_purchase', { p_line: line });
+  if (!error) return;
+  // Until migration 0003 is deployed, deposits still record, without updating a holding.
+  if (error.code !== 'PGRST202') throw error;
+  await addContribution(client, userId, { account: line.account, instrument_id: line.instrument_id, amount_cad: line.amount_cad, fx_provider: null, fx_rate: line.fx_rate ?? null, fx_cost_cad: null, amount_native: line.amount_native ?? null, contributed_on: line.contributed_on });
+}
+
+export async function updateContribution(client: SupabaseClient, id: number, line: ContributionLine): Promise<void> {
+  const { error } = await client.rpc('update_contribution', { p_id: id, p_line: line });
+  if (error) throw error;
+}
+
+export async function deleteContribution(client: SupabaseClient, id: number): Promise<void> {
+  const { error } = await client.rpc('delete_contribution', { p_id: id });
+  if (error) throw error;
+}
+
+// ── Portfolio history ─────────────────────────────────────────────────
+
+/** Best effort: a missed day only leaves a gap in the chart. */
+export async function saveSnapshot(client: SupabaseClient, userId: string, date: string, value: number): Promise<void> {
+  await client.from('portfolio_snapshots').upsert({ user_id: userId, snapshot_on: date, value_cad: Math.round(value * 100) / 100 }, { onConflict: 'user_id,snapshot_on' });
+}
+
+export async function getSnapshots(client: SupabaseClient, userId: string): Promise<{ snapshot_on: string; value_cad: number }[]> {
+  const { data, error } = await client.from('portfolio_snapshots').select('snapshot_on, value_cad').eq('user_id', userId).order('snapshot_on');
+  if (error) return [];
+  return data ?? [];
+}
+
+// ── Contribution room ─────────────────────────────────────────────────
+
+export async function getRoomEvents(client: SupabaseClient, userId: string): Promise<RoomEventRow[]> {
+  const { data, error } = await client.from('room_events').select('id, account, kind, amount_cad, effective_on, note').eq('user_id', userId).order('id', { ascending: false }).limit(50);
+  if (error) return [];
+  return (data ?? []) as RoomEventRow[];
+}
+
+export async function addRoom(client: SupabaseClient, account: 'TFSA' | 'RRSP', amount: number, kind: RoomEventRow['kind'], note?: string): Promise<void> {
+  const { error } = await client.rpc('add_room', { p_account: account, p_amount: amount, p_kind: kind, p_note: note ?? null });
+  if (error) throw error;
+}
+
+export async function setRoom(client: SupabaseClient, tfsa: number, rrsp: number): Promise<void> {
+  const { error } = await client.rpc('set_room', { p_tfsa: tfsa, p_rrsp: rrsp });
+  if (error) throw error;
+}
+
 export async function getWithdrawals(client: SupabaseClient, userId: string): Promise<WithdrawalRow[]> {
   const { data, error } = await client
     .from('withdrawals')
@@ -306,7 +440,9 @@ export async function addWithdrawal(
   userId: string,
   w: Omit<WithdrawalRow, 'id'>
 ): Promise<WithdrawalRow> {
-  const { data, error } = await client.from('withdrawals').insert({ user_id: userId, ...w }).select('*').single();
+  // A restoration year already here is assumed to be in the room the user entered.
+  const restored = w.room_restored_in != null && w.room_restored_in <= new Date().getFullYear();
+  const { data, error } = await client.from('withdrawals').insert({ user_id: userId, restored, ...w }).select('*').single();
   if (error) throw error;
   return data as WithdrawalRow;
 }
