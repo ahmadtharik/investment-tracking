@@ -47,3 +47,11 @@ Replace the example production host with the actual Vercel URL. If using a custo
 - If sharing a test account, confirm that it cannot read or modify another user's profile, holdings, contributions, or settings. Keep screenshots and exported data limited to the fictional test account.
 
 Do not publish the demo URL in the GitHub README until these checks pass. A shared test account can be modified by visitors, so prefer screenshots or a walkthrough until there is a resettable, restricted demo experience.
+
+## 5. Daily job
+
+`vercel.json` runs `/api/cron/keep-alive` daily at 09:00 UTC. It keeps Supabase active, records due contribution instalments and applies restored TFSA room for all users.
+
+- Set `CRON_SECRET` and `SUPABASE_SERVICE_ROLE_KEY` in Vercel Production. Without `CRON_SECRET` the route rejects every request.
+- A healthy run returns `{"ok":true,"settled":n,"remaining":0}`. Anything left in `remaining` is handled by the next run or the user's next visit.
+- Vercel Hobby limits functions to 60 seconds, so a large user base needs a paid plan or batched runs.

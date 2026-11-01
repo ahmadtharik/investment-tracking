@@ -351,6 +351,11 @@ export async function saveSchedule(client: SupabaseClient, userId: string, sched
   if (error) throw error;
 }
 
+export async function deleteSchedule(client: SupabaseClient, userId: string): Promise<void> {
+  const { error } = await client.from('contribution_schedules').delete().eq('user_id', userId);
+  if (error) throw error;
+}
+
 export async function getCycles(client: SupabaseClient, userId: string, limit = 12): Promise<CycleRow[]> {
   const { data, error } = await client.from('contribution_cycles').select('id, due_on, status, note, reviewed').eq('user_id', userId).order('due_on', { ascending: false }).limit(limit);
   if (error) return [];

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { clientSupabase } from '@/lib/supabase/client';
-import { deleteContribution, recordPurchase, resolveCycle, updateContribution, type ContributionLine, type ContributionRow, type InstrumentRow, type ScheduleRow } from '@/lib/db/queries';
+import { deleteContribution, recordPurchase, resolveCycle, undoCycle, updateContribution, type ContributionLine, type ContributionRow, type InstrumentRow, type ScheduleRow } from '@/lib/db/queries';
 import { coversNextByDefault, dueAfter, todayInToronto } from '@/lib/engine/schedule';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -126,7 +126,9 @@ export function ContributionForm({ userId, contributions, initialAccount = 'TFSA
     setBusy(true);
     setMessage(null);
     try {
-      await deleteContribution(clientSupabase(), row.id);
+      // A manual entry stood in for its whole instalment, so removing it undoes the instalment too.
+      if (row.source === 'manual' && row.cycle_due_on) await undoCycle(clientSupabase(), row.cycle_due_on);
+      else await deleteContribution(clientSupabase(), row.id);
       setMessage('Contribution deleted.');
       router.refresh();
     } catch (error) {

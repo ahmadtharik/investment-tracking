@@ -21,10 +21,10 @@
     "react-dom": "^19.3.0",
     "recharts": "^2.15.0",
     "server-only": "^0.0.1",
-    "yahoo-finance2": "^4.0.2",
-    "zod": "^3.24.0"
+    "yahoo-finance2": "^4.0.2"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.14",
     "@tailwindcss/postcss": "^4.1.0",
     "@types/node": "^26",
     "@types/react": "^19",
