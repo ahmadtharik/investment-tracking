@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getQuotes } from '@/lib/market/yahoo';
 
+import { isSignedIn } from '@/lib/supabase/api-auth';
+
 export const dynamic = 'force-dynamic';
 
 /** GET /api/market/quotes?tickers=XEQT.TO,VTI */
 export async function GET(request: NextRequest) {
+  if (!(await isSignedIn())) return NextResponse.json({ error: 'Sign in required' }, { status: 401 });
   const tickers = (request.nextUrl.searchParams.get('tickers') ?? '')
     .split(',')
     .map((t) => t.trim())

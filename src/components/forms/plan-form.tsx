@@ -2,13 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useDeferredValue, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
-  Area,
   Bar,
   CartesianGrid,
   ComposedChart,
-  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -16,8 +14,9 @@ import {
 } from "recharts";
 import { clientSupabase } from "@/lib/supabase/client";
 import { saveAccountAllocations, type AccountAllocRow } from "@/lib/db/queries";
-import { futureValue, projectSeries } from "@/lib/engine/projection";
+import { futureValue } from "@/lib/engine/projection";
 import { formatCAD, formatPct } from "@/lib/format";
+import { settleBeforePlanChange } from "@/lib/schedule/client";
 import { ContributionRunway } from "@/components/contribution-runway";
 import { AppIcon, type AppIconName } from "@/components/ui/app-icon";
 
@@ -54,7 +53,8 @@ const ACCOUNTS: {
     icon: "cash",
   },
 ];
-const HORIZONS = [5, 10, 20, 30] as const;
+const PROJECTION_YEARS = 10;
+const PROJECTION_RETURN = 7;
 const numeric = (value: string) => {
   const n = Number.parseFloat(value);
   return Number.isFinite(n) ? Math.max(0, n) : 0;
@@ -101,14 +101,6 @@ function Icon({
   );
 }
 
-function ActionIcon({ name }: { name: AppIconName }) {
-  return (
-    <span className="text-xl leading-none text-[var(--color-primary)]">
-      <AppIcon name={name} className="h-5 w-5" />
-    </span>
-  );
-}
-
 export function PlanWorkspace({
   userId,
   month,
@@ -120,9 +112,11 @@ export function PlanWorkspace({
   rrspRoom,
   baseline,
   purchases,
+  schedule,
 }: {
   baseline?: React.ReactNode;
   purchases?: React.ReactNode;
+  schedule?: React.ReactNode;
   userId: string;
   month: string;
   monthlySurplus: number;
@@ -147,9 +141,6 @@ export function PlanWorkspace({
   const [error, setError] = useState<string | null>(null);
   const [chartYear, setChartYear] = useState(new Date().getFullYear());
   const chartYears = [...new Set([new Date().getFullYear(), ...contributions.map(c => Number(c.date.slice(0, 4)))])].sort((a,b) => b-a);
-  const [horizon, setHorizon] = useState<(typeof HORIZONS)[number]>(10);
-  const [annualReturn, setAnnualReturn] = useState(7);
-  const deferredAnnualReturn = useDeferredValue(annualReturn);
   const totalPct = useMemo(
     () => rows.reduce((sum, row) => sum + numeric(row.pct), 0),
     [rows],
@@ -163,7 +154,13 @@ export function PlanWorkspace({
   const investedThisMonth = contributions
     .filter((item) => item.date.slice(0, 7) === currentMonth)
     .reduce((sum, item) => sum + item.amount, 0);
-  const plannedTotal = Math.max(0, allocated);
+  // What can actually go in this month: registered accounts stop at their room.
+  const plannedTotal = rows.reduce((sum, row) => {
+    const amount = numeric(row.amount);
+    if (row.account === "TFSA") return sum + Math.min(amount, Math.max(0, tfsaRoom));
+    if (row.account === "RRSP") return sum + Math.min(amount, Math.max(0, rrspRoom));
+    return sum + amount;
+  }, 0);
   const status =
     plannedTotal <= 0
       ? "neutral"
@@ -172,17 +169,10 @@ export function PlanWorkspace({
         : "behind";
   const progress =
     plannedTotal > 0 ? Math.min(1, investedThisMonth / plannedTotal) : 0;
-  const projectionInput = {
-    starting: Math.max(0, portfolioValue),
-    monthlyContribution: Math.max(0, plannedTotal),
-    annualReturn: deferredAnnualReturn / 100,
-    contributionFrequency: "monthly" as const,
-  };
-  const series = useMemo(
-    () => projectSeries(projectionInput, horizon * 12),
-    [portfolioValue, plannedTotal, deferredAnnualReturn, horizon],
+  const projected = futureValue(
+    { starting: Math.max(0, portfolioValue), monthlyContribution: plannedTotal, annualReturn: PROJECTION_RETURN / 100, contributionFrequency: "monthly" },
+    PROJECTION_YEARS,
   );
-  const projected = series.at(-1) ?? { value: 0, contributed: 0 };
   const monthlyBars = useMemo(() => {
     const now = new Date();
     const year = chartYear;
@@ -240,6 +230,7 @@ export function PlanWorkspace({
     }
     setSaving(true);
     try {
+      await settleBeforePlanChange();
       await saveAccountAllocations(
         clientSupabase(),
         userId,
@@ -268,12 +259,6 @@ export function PlanWorkspace({
     setError(null);
     setEditing(false);
   }
-  const ticks = [
-    0,
-    Math.round(horizon * 0.2) * 12,
-    Math.round(horizon * 0.5) * 12,
-    horizon * 12,
-  ];
 
   return (
     <div className="mx-auto w-full max-w-[1276px]">
@@ -289,7 +274,7 @@ export function PlanWorkspace({
         <div className="flex min-h-[62px] items-center gap-3 rounded-xl bg-[var(--color-primary-subtle)] px-4 py-3 lg:w-[550px]">
           <Icon name="target" />
           <div>
-            <p className="text-sm font-bold text-emerald-700">
+            <p className={`text-sm font-bold ${status === "on-track" ? "text-emerald-700" : "text-[var(--text-primary)]"}`}>
               {status === "on-track"
                 ? "You're on track!"
                 : status === "behind"
@@ -538,235 +523,8 @@ export function PlanWorkspace({
       </div>
 
       {purchases}
-      <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.32fr)_minmax(0,1fr)]">
-        <section className="rounded-[14px] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]">
-          <h2 className="text-[16px] font-bold">Plan settings</h2>
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            <label className="text-xs text-[var(--text-muted)]">
-              Time horizon
-              <select
-                value={horizon}
-                onChange={(event) =>
-                  setHorizon(Number(event.target.value) as typeof horizon)
-                }
-                className="mt-1 h-9 w-full rounded-lg border border-[var(--border)] bg-white px-2 text-sm font-semibold text-[var(--text-primary)]"
-              >
-                {HORIZONS.map((years) => (
-                  <option key={years} value={years}>
-                    {years} years
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="text-xs text-[var(--text-muted)]">
-              Expected annual return
-              <span className="mt-1 grid h-9 grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-2">
-                <b className="w-10 text-sm tabular-nums text-[var(--text-primary)]">
-                  {annualReturn}%
-                </b>
-                <input
-                  aria-label="Expected annual return"
-                  className="min-w-0 w-full accent-blue-600"
-                  type="range"
-                  min={0}
-                  max={12}
-                  step={0.5}
-                  value={annualReturn}
-                  onChange={(event) =>
-                    setAnnualReturn(Number(event.target.value))
-                  }
-                />
-              </span>
-            </label>
-            <label className="text-xs text-[var(--text-muted)]">
-              Currency
-              <span className="mt-1 flex h-9 items-center rounded-lg border border-[var(--border)] px-2 text-sm font-semibold text-[var(--text-primary)]">
-                CAD (Canadian Dollar)
-              </span>
-            </label>
-          </div>
-        </section>
-        <section className="hidden rounded-[14px] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]">
-          <h2 className="text-[16px] font-bold">Quick actions</h2>
-          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {[
-              { icon: "plus" as const, label: "Record a contribution", href: "/accounts" },
-              {
-                icon: "sliders" as const,
-                label: "Adjust plan",
-                action: () => setEditing(true),
-              },
-              { icon: "settings" as const, label: "Set up rules", href: "/settings" },
-              { icon: "accounts" as const, label: "View accounts", href: "/accounts" },
-            ].map((action) =>
-              action.href ? (
-                <Link
-                  key={action.label}
-                  href={action.href}
-                  className="flex min-h-[60px] flex-col justify-between rounded-lg border border-blue-100 bg-blue-50/60 p-2 text-[11px] font-semibold text-[var(--color-primary)]"
-                >
-                  <ActionIcon name={action.icon} />
-                  {action.label}
-                </Link>
-              ) : (
-                <button
-                  key={action.label}
-                  onClick={action.action}
-                  className="flex min-h-[60px] flex-col justify-between rounded-lg border border-blue-100 bg-blue-50/60 p-2 text-left text-[11px] font-semibold text-[var(--color-primary)]"
-                >
-                  <ActionIcon name={action.icon} />
-                  {action.label}
-                </button>
-              ),
-            )}
-          </div>
-        </section>
-      </div>
-
       <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,.75fr)]">
         <ContributionRunway tfsaRoom={tfsaRoom} rrspRoom={rrspRoom} tfsaMonthly={numeric(rows.find((row) => row.account === 'TFSA')?.amount ?? '0')} rrspMonthly={numeric(rows.find((row) => row.account === 'RRSP')?.amount ?? '0')} />
-        <section className="hidden rounded-[14px] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]">
-          <div className="flex justify-between gap-3">
-            <h2 className="text-[16px] font-bold">Projected portfolio value</h2>
-            <label>
-              <span className="sr-only">Projection horizon</span>
-              <select
-                aria-label="Projection horizon"
-                value={horizon}
-                onChange={(event) => setHorizon(Number(event.target.value) as typeof horizon)}
-                className="h-8 rounded-lg border border-[var(--border)] bg-white px-2.5 text-xs font-semibold text-[var(--text-primary)]"
-              >
-                {HORIZONS.map((years) => <option key={years} value={years}>{years} years</option>)}
-              </select>
-            </label>
-          </div>
-          <div className="mt-2 grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px]">
-            <div>
-              <div
-                className="h-[188px]"
-                role="img"
-                aria-label={`Projected portfolio value across ${horizon} years`}
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart
-                    data={series}
-                    margin={{ top: 8, right: 4, left: -12, bottom: 0 }}
-                  >
-                    <defs>
-                      <linearGradient
-                        id="planProjectionFill"
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop
-                          offset="0%"
-                          stopColor="#3B82F6"
-                          stopOpacity={0.2}
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor="#3B82F6"
-                          stopOpacity={0.01}
-                        />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid stroke="#E2E8F0" vertical={false} />
-                    <XAxis
-                      dataKey="month"
-                      ticks={ticks}
-                      tickFormatter={(value) =>
-                        value === 0 ? "Now" : `${Math.round(value / 12)}y`
-                      }
-                      tick={{ fontSize: 10, fill: "#64748B" }}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      tickFormatter={(value) =>
-                        value === 0 ? "$0" : `$${Math.round(value / 1000)}K`
-                      }
-                      tick={{ fontSize: 10, fill: "#64748B" }}
-                      width={42}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <Tooltip
-                      formatter={(value, name) => [
-                        formatCAD(Number(value)),
-                        name === "contributed"
-                          ? "Contributions"
-                          : "Portfolio value",
-                      ]}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="value"
-                      stroke="#2563EB"
-                      strokeWidth={2.5}
-                      fill="url(#planProjectionFill)"
-                      isAnimationActive={false}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="contributed"
-                      stroke="#2563EB"
-                      strokeWidth={1.5}
-                      strokeDasharray="5 4"
-                      dot={false}
-                      isAnimationActive={false}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex justify-center gap-5 text-[11px] text-[var(--text-muted)]">
-                <span>
-                  <i className="mr-1.5 inline-block h-2.5 w-2.5 rounded-full bg-blue-500" />
-                  Portfolio value
-                </span>
-                <span>
-                  <i className="mr-1.5 inline-block w-4 border-t-2 border-dashed border-blue-500" />
-                  Contributions
-                </span>
-              </div>
-            </div>
-            <dl className="rounded-xl bg-blue-50/70 p-4">
-              <div>
-                <dt className="text-2xl font-bold tabular-nums text-[var(--text-primary)]">
-                  {formatCAD(projected.value)}
-                </dt>
-                <dd className="text-xs text-[var(--text-muted)]">
-                  Estimated value in {horizon} years
-                </dd>
-              </div>
-              <div className="mt-4 border-t border-blue-100 pt-3">
-                <dt className="text-sm font-bold tabular-nums">
-                  {formatCAD(projected.contributed)}
-                </dt>
-                <dd className="text-xs text-[var(--text-muted)]">
-                  Your contributions
-                </dd>
-              </div>
-              <div className="mt-3">
-                <dt className="text-sm font-bold tabular-nums">
-                  {formatCAD(
-                    Math.max(0, projected.value - projected.contributed),
-                  )}
-                </dt>
-                <dd className="text-xs text-[var(--text-muted)]">
-                  Investment growth
-                </dd>
-              </div>
-              <div className="mt-3">
-                <dt className="text-sm font-bold">{annualReturn}%</dt>
-                <dd className="text-xs text-[var(--text-muted)]">
-                  Annual return (est.)
-                </dd>
-              </div>
-            </dl>
-          </div>
-        </section>
         <section className="rounded-[14px] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]">
           <div className="flex justify-between">
             <h2 className="text-[16px] font-bold">Plan insights</h2>
@@ -796,7 +554,7 @@ export function PlanWorkspace({
               tone="blue"
               icon="projections"
               title="Projection estimate"
-              copy={`${formatCAD(projected.value)} is your estimated ${horizon}-year portfolio value at ${annualReturn}%.`}
+              copy={`${formatCAD(projected.value)} is your estimated ${PROJECTION_YEARS}-year portfolio value at ${PROJECTION_RETURN}%.`}
             />
             <Insight
               tone="orange"
@@ -808,81 +566,7 @@ export function PlanWorkspace({
         </section>
       </div>
 
-      <section className="mt-3 rounded-[14px] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-[16px] font-bold">Contribution schedule</h2>
-            <p className="text-xs text-[var(--text-muted)]">
-              Your planned contributions over time.
-            </p>
-          </div>
-          <button
-            onClick={() => { setEditing(true); window.setTimeout(() => document.getElementById('allocation-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0); }}
-            className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-[var(--color-primary)]"
-          >
-            Edit monthly allocation
-          </button>
-        </div>
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full min-w-[700px] text-left text-xs">
-            <thead className="bg-blue-50/70 text-[var(--text-muted)]">
-              <tr>
-                <th className="rounded-l-lg px-3 py-2 font-semibold">Month</th>
-                {ACCOUNTS.map((account) => (
-                  <th key={account.key} className="px-3 py-2 font-semibold">
-                    {account.label}
-                  </th>
-                ))}
-                <th className="px-3 py-2 font-semibold">Total</th>
-                <th className="rounded-r-lg px-3 py-2 font-semibold">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Array.from({ length: 4 }, (_, index) => {
-                const date = new Date();
-                date.setDate(1);
-                date.setMonth(date.getMonth() + index);
-                const rowMonth = new Intl.DateTimeFormat("en-CA", {
-                  month: "long",
-                  year: "numeric",
-                }).format(date);
-                const isCurrent = index === 0;
-                return (
-                  <tr
-                    key={rowMonth}
-                    className="border-b border-[var(--border)] last:border-0"
-                  >
-                    <td className="px-3 py-2.5 font-medium text-[var(--text-primary)]">
-                      {rowMonth}
-                    </td>
-                    {rows.map((row) => (
-                      <td
-                        key={row.account}
-                        className="px-3 py-2.5 tabular-nums"
-                      >
-                        {formatCAD(numeric(row.amount))}
-                      </td>
-                    ))}
-                    <td className="px-3 py-2.5 font-bold tabular-nums">
-                      {formatCAD(allocated)}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <span
-                        className={`inline-flex items-center gap-2 font-medium ${isCurrent ? "text-emerald-600" : "text-[var(--text-muted)]"}`}
-                      >
-                        <i
-                          className={`h-2 w-2 rounded-full ${isCurrent ? "bg-emerald-400" : "bg-slate-300"}`}
-                        />
-                        {isCurrent ? "On track" : "Upcoming"}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {schedule}
     </div>
   );
 }

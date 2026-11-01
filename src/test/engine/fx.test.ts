@@ -15,6 +15,12 @@ describe('convertCadToUsd', () => {
     expect(r.fxCostCad).toBeCloseTo(1000 - expectedUsd * 1.35, 6); // cost expressed in CAD
   });
 
+  it('shows the real cost of a custom rate worse than the mid rate', () => {
+    const r = convertCadToUsd(1000, 1.35, { provider: 'CUSTOM', rate: 1.4 });
+    expect(r.usdReceived).toBeCloseTo(1000 / 1.4, 6);
+    expect(r.fxCostCad).toBeCloseTo(1000 - (1000 / 1.4) * 1.35, 6);
+  });
+
   it('handles zero amount', () => {
     expect(convertCadToUsd(0, 1.35, { provider: 'WEALTHSIMPLE', rate: 1.35 }).usdReceived).toBe(0);
   });

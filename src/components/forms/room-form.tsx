@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { clientSupabase } from '@/lib/supabase/client';
-import { saveProfile, type Profile } from '@/lib/db/queries';
+import { setRoom, type Profile } from '@/lib/db/queries';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field } from '@/components/ui/field';
@@ -27,7 +27,7 @@ export function RoomForm({ userId, profile }: { userId: string; profile: Profile
     }
     setSaving(true);
     try {
-      await saveProfile(clientSupabase(), userId, { tfsa_room: tfsaRoom, rrsp_room: rrspRoom });
+      await setRoom(clientSupabase(), tfsaRoom, rrspRoom);
       setMessage('Saved ✓');
       router.refresh();
     } catch (error) {

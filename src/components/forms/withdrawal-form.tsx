@@ -8,12 +8,13 @@ import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Field } from '@/components/ui/field';
 import { formatCAD } from '@/lib/format';
+import { todayInToronto } from '@/lib/engine/schedule';
 import { InfoTooltip } from '@/components/ui/info-tooltip';
 
 export function WithdrawalForm({ userId, withdrawals }: { userId: string; withdrawals: WithdrawalRow[] }) {
   const currentYear = new Date().getFullYear();
   const [amount, setAmount] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todayInToronto());
   const [restoreYear, setRestoreYear] = useState(String(currentYear + 1));
   const [rows, setRows] = useState(withdrawals);
   const [busy, setBusy] = useState(false);
@@ -56,7 +57,7 @@ export function WithdrawalForm({ userId, withdrawals }: { userId: string; withdr
       <div className="mt-5 overflow-x-auto">
         {rows.length === 0 ? <p className="text-sm text-zinc-500 dark:text-zinc-400">No withdrawals recorded.</p> : (
           <table className="w-full text-left text-sm"><thead className="text-xs uppercase text-zinc-500"><tr><th className="pb-2">Date</th><th className="pb-2 text-center">Amount</th><th className="pb-2 text-center">Room restored</th><th className="pb-2 text-center">Action</th></tr></thead>
-            <tbody>{rows.map((row) => <tr key={row.id} className="border-t border-zinc-200 dark:border-zinc-800"><td className="py-2">{row.withdrawn_on}</td><td className="py-2 text-center">{formatCAD(row.amount_cad)}</td><td className="py-2 text-center">{row.room_restored_in ?? 'Not set'}</td><td className="py-2 text-center"><Button variant="danger" onClick={() => remove(row)} disabled={busy || row.id < 0}>Remove</Button></td></tr>)}</tbody>
+            <tbody>{rows.map((row) => <tr key={row.id} className="border-t border-zinc-200 dark:border-zinc-800"><td className="py-2">{row.withdrawn_on}</td><td className="py-2 text-center">{formatCAD(row.amount_cad)}</td><td className="py-2 text-center">{row.room_restored_in ?? 'Not set'}{row.restored ? ' · applied' : ''}</td><td className="py-2 text-center"><Button variant="danger" onClick={() => remove(row)} disabled={busy || row.id < 0 || row.restored}>Remove</Button></td></tr>)}</tbody>
           </table>
         )}
       </div>

@@ -81,7 +81,16 @@ export function computePlan(input: PlanInput): PlanResult {
 
 /** Room at a point in time: start, minus planned annual spend, plus TFSA withdrawal room restored next year. */
 export function roomAfterContributions(room: number, projectedAnnual: number, withdrawalsRestoringNextYear = 0): number {
-  return room - projectedAnnual + withdrawalsRestoringNextYear;
+  return Math.max(0, room - projectedAnnual + withdrawalsRestoringNextYear);
+}
+
+/**
+ * This year's picture for one account. Saved room is what's left today, so the
+ * limit is what's left plus what has gone in this year. Negative room means over the limit.
+ */
+export function roomSummary(room: number, contributedThisYear: number) {
+  const used = Math.max(0, contributedThisYear);
+  return { limit: Math.max(0, room + used), used, available: Math.max(0, room), over: Math.max(0, -room) };
 }
 
 export interface RoomPoint {

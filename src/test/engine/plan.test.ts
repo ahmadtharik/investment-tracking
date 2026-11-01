@@ -1,4 +1,20 @@
 import { describe, it, expect } from 'vitest';
+import { roomAfterContributions, roomSummary } from '@/lib/engine/plan';
+
+describe('roomSummary', () => {
+  it('derives the limit from what is left and what went in', () => {
+    expect(roomSummary(5000, 2000)).toEqual({ limit: 7000, used: 2000, available: 5000, over: 0 });
+  });
+  it('reports an over-contribution', () => {
+    expect(roomSummary(-500, 7500)).toEqual({ limit: 7000, used: 7500, available: 0, over: 500 });
+  });
+});
+
+describe('roomAfterContributions', () => {
+  it('never reports negative room', () => {
+    expect(roomAfterContributions(5000, 12000)).toBe(0);
+  });
+});
 import { computePlan, roomTrajectory } from '@/lib/engine/plan';
 import type { PlanInput, InstrumentRef } from '@/lib/engine/types';
 
