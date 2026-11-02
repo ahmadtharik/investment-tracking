@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import type { AccountAllocRow } from '@/lib/db/queries';
 import { AppIcon, type AppIconName } from '@/components/ui/app-icon';
 
-type SettingsHubProps = { userId: string; displayName: string; email: string; accountAlloc: AccountAllocRow[] };
+type SettingsHubProps = { isDemo?: boolean; userId: string; displayName: string; email: string; accountAlloc: AccountAllocRow[] };
 
 function Icon({ name, tone = 'blue' }: { name: AppIconName; tone?: 'blue' | 'green' | 'orange' | 'red' }) {
   const tones = { blue: 'bg-blue-50 text-blue-600', green: 'bg-emerald-50 text-emerald-600', orange: 'bg-orange-50 text-orange-500', red: 'bg-rose-50 text-rose-500' };
@@ -27,7 +27,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
   return <button type="button" role="switch" aria-label="Compact table spacing" aria-checked={checked} onClick={onChange} className={`relative h-6 w-11 rounded-full transition-colors ${checked ? 'bg-blue-600' : 'bg-slate-300'}`}><span className={`absolute left-0 top-1 h-4 w-4 rounded-full bg-white transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'}`} /></button>;
 }
 
-export function SettingsHub({ userId, displayName, email, accountAlloc }: SettingsHubProps) {
+export function SettingsHub({ isDemo = false, userId, displayName, email, accountAlloc }: SettingsHubProps) {
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('light');
   const [compact, setCompact] = useState(false);
   const [preferencesReady, setPreferencesReady] = useState(false);
@@ -56,7 +56,7 @@ export function SettingsHub({ userId, displayName, email, accountAlloc }: Settin
   ];
   return <div className="mt-4 grid gap-3 xl:grid-cols-[1.08fr_1fr_1fr] xl:items-start">
     <div className="space-y-3">
-      <section className="rounded-[var(--radius-card)] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]"><h2 className="text-base font-semibold">Profile</h2><div className="mt-3 flex items-center gap-3"><span className="grid h-14 w-14 place-items-center rounded-full bg-[#14285d] text-xl font-bold text-white">{initials}</span><span className="min-w-0 flex-1"><b className="block text-sm">{displayName}</b><small className="block truncate text-sm text-[var(--text-muted)]">{email}</small></span></div><ProfileEditor name={displayName} /></section>
+      <section className="rounded-[var(--radius-card)] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]"><h2 className="text-base font-semibold">Profile</h2><div className="mt-3 flex items-center gap-3"><span className="grid h-14 w-14 place-items-center rounded-full bg-[#14285d] text-xl font-bold text-white">{initials}</span><span className="min-w-0 flex-1"><b className="block text-sm">{displayName}</b><small className="block truncate text-sm text-[var(--text-muted)]">{email}</small></span></div>{!isDemo && <ProfileEditor name={displayName} />}</section>
       
       <section className="rounded-[var(--radius-card)] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]"><div className="flex items-center justify-between"><div><h2 className="text-base font-semibold">Goals</h2><p className="mt-0.5 text-sm text-[var(--text-muted)]">Plan-derived milestones.</p></div><Link href="/projections#milestones" className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white">View milestones</Link></div><div className="mt-3 space-y-2">{planned.map((item, index) => <Link href={index === 0 ? '/plan' : index === 1 ? '/projections' : '/accounts/manage#contribution-room'} key={item.title} className="flex min-h-[68px] items-center gap-3 rounded-lg border border-[var(--border)] px-3 py-2 hover:border-blue-200 hover:bg-blue-50/30"><Icon tone={item.tone} name={item.icon} /><span className="min-w-0 flex-1"><b className="block text-sm">{item.title}</b><small className="block text-xs text-[var(--text-muted)]">{item.copy}</small></span><AppIcon name="chevron-right" className="h-5 w-5 text-[var(--text-muted)]" /></Link>)}</div></section>
     </div>
@@ -69,7 +69,7 @@ export function SettingsHub({ userId, displayName, email, accountAlloc }: Settin
 
     <div className="space-y-3">
       
-      <section className="rounded-[var(--radius-card)] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]"><h2 className="text-base font-semibold">Privacy & Security</h2><p className="mt-0.5 text-sm text-[var(--text-muted)]">Manage your data and account security.</p><div className="mt-3 space-y-2"><Row icon="shield" title="Change password" copy="Set a new password for your account." href="/update-password" /><a href="/api/account/export" download className="flex items-center gap-2 rounded-lg border border-[var(--border)] p-3 text-sm font-semibold text-blue-600"><AppIcon name="download" className="h-5 w-5" />Download my data (JSON)</a><DeleteAccount /></div>{securityMessage && <p role="status" className="mt-3 text-sm text-[var(--text-muted)]">{securityMessage}</p>}</section>
+      <section className="rounded-[var(--radius-card)] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]"><h2 className="text-base font-semibold">Privacy & Security</h2><p className="mt-0.5 text-sm text-[var(--text-muted)]">Manage your data and account security.</p><div className="mt-3 space-y-2">{!isDemo && <Row icon="shield" title="Change password" copy="Set a new password for your account." href="/update-password" />}<a href="/api/account/export" download className="flex items-center gap-2 rounded-lg border border-[var(--border)] p-3 text-sm font-semibold text-blue-600"><AppIcon name="download" className="h-5 w-5" />Download my data (JSON)</a>{!isDemo && <DeleteAccount />}</div>{securityMessage && <p role="status" className="mt-3 text-sm text-[var(--text-muted)]">{securityMessage}</p>}</section>
       
     </div>
 

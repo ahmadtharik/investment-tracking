@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { serverSupabase, serviceSupabase } from '@/lib/supabase/server';
 import { upsertInstrument } from '@/lib/db/queries';
+import { isDemoUser } from '@/lib/demo/seed';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,8 @@ export async function POST(request: NextRequest) {
   const db = await serverSupabase();
   const { data: { user } } = await db.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Sign in required' }, { status: 401 });
+  // The instrument list is shared with real users, so visitors can't add to it.
+  if (isDemoUser(user.id)) return NextResponse.json({ error: 'The demo account can only use investments already listed.' }, { status: 403 });
   const body = await request.json().catch(() => null);
   const ticker = typeof body?.ticker === 'string' ? body.ticker.trim().toUpperCase() : '';
   if (!ticker || ticker.length > 30 || !/^[A-Z0-9.^=\-]+$/.test(ticker)) {

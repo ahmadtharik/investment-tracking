@@ -3,6 +3,7 @@ import { DisplayPreferences } from '@/components/display-preferences';
 import { Nav } from '@/components/nav';
 import { serverSupabase } from '@/lib/supabase/server';
 import { getAccountAllocations, getHoldings } from '@/lib/db/queries';
+import { isDemoUser } from '@/lib/demo/seed';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // Any signed-out visitor hitting an app route is redirected to /login.
@@ -39,7 +40,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <>
       <DisplayPreferences userId={user.id} />
       <Nav profileName={profileName} searchItems={searchItems} />
-      <main className="app-content-shell min-h-screen px-4 pb-8 pt-5 sm:px-6 md:ml-56 md:pl-10 md:pr-6 md:pb-12 md:pt-[75px]">{children}</main>
+      <main className="app-content-shell min-h-screen px-4 pb-8 pt-5 sm:px-6 md:ml-56 md:pl-10 md:pr-6 md:pb-12 md:pt-[75px]">{isDemoUser(user.id) && <p role="status" className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-900">You&apos;re viewing a demo with fictional data. Feel free to try anything: it resets daily, and other visitors may see your changes, so don&apos;t enter real information.</p>}{children}</main>
     </>
   );
 }
