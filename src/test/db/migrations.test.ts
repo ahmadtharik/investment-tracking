@@ -197,3 +197,10 @@ describe('row level security', () => {
     }
   });
 });
+
+describe('starter tickers', () => {
+  it('uses symbols Yahoo Finance recognizes', async () => {
+    const { rows } = await db.query<{ ticker: string }>(`select ticker from instruments where ticker in ('VUS.CN', 'VUN.CN', 'XIHT.TO', 'VUS.TO', 'VUN.TO', 'XIU.TO') order by ticker`);
+    expect(rows.map((row) => row.ticker)).toEqual(['VUN.TO', 'VUS.TO', 'XIU.TO']);
+  });
+});
