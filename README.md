@@ -6,7 +6,7 @@ Investment Planner is a multi-user Next.js app for turning monthly income and ex
 
 ## Introduction
 
-Start with the public [Investment Planner landing page](https://investment-tracking-two.vercel.app/). It introduces the product before visitors create an account or sign in, then guides them into the planning experience.
+Start with the public [Investment Planner landing page](https://investment-tracking-two.vercel.app/). It introduces the product before visitors create an account or sign in, then guides them into the planning experience. Choose **Try the demo** to explore a shared account with fictional data, which resets daily.
 
 ![Investment Planner landing page](public/images/showcase/landing-page.png)
 
@@ -14,6 +14,7 @@ Start with the public [Investment Planner landing page](https://investment-track
 
 - Converts a financial baseline into a monthly TFSA, RRSP, and cash allocation.
 - Tracks recorded contributions against the current plan and available registered-account room.
+- Records scheduled monthly contributions on their due date, with options to record early, change the amount, or skip.
 - Keeps holdings and asset allocation in one place, with current CAD values.
 - Models long-term portfolio growth, contribution runway, scenarios, and milestones.
 
@@ -72,7 +73,7 @@ flowchart LR
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY` (server-only; never expose it to the browser)
 
-3. Run [`src/db/migrations/0001_init.sql`](src/db/migrations/0001_init.sql), [`src/db/migrations/0002_atomic_contributions.sql`](src/db/migrations/0002_atomic_contributions.sql), [`src/db/migrations/0003_contribution_schedule.sql`](src/db/migrations/0003_contribution_schedule.sql), [`src/db/migrations/0004_security_and_names.sql`](src/db/migrations/0004_security_and_names.sql), [`src/db/migrations/0005_holding_cost_and_edit.sql`](src/db/migrations/0005_holding_cost_and_edit.sql), [`src/db/migrations/0006_room_history.sql`](src/db/migrations/0006_room_history.sql), [`src/db/migrations/0007_portfolio_snapshots.sql`](src/db/migrations/0007_portfolio_snapshots.sql), then [`src/db/migrations/0008_scheduled_recording.sql`](src/db/migrations/0008_scheduled_recording.sql), in the Supabase SQL editor. They create the schema, policies, starter instruments, and atomic contribution recording.
+3. Run [`src/db/migrations/0001_init.sql`](src/db/migrations/0001_init.sql), [`src/db/migrations/0002_atomic_contributions.sql`](src/db/migrations/0002_atomic_contributions.sql), [`src/db/migrations/0003_contribution_schedule.sql`](src/db/migrations/0003_contribution_schedule.sql), [`src/db/migrations/0004_security_and_names.sql`](src/db/migrations/0004_security_and_names.sql), [`src/db/migrations/0005_holding_cost_and_edit.sql`](src/db/migrations/0005_holding_cost_and_edit.sql), [`src/db/migrations/0006_room_history.sql`](src/db/migrations/0006_room_history.sql), [`src/db/migrations/0007_portfolio_snapshots.sql`](src/db/migrations/0007_portfolio_snapshots.sql), [`src/db/migrations/0008_scheduled_recording.sql`](src/db/migrations/0008_scheduled_recording.sql), then [`src/db/migrations/0009_fix_tickers.sql`](src/db/migrations/0009_fix_tickers.sql), in the Supabase SQL editor. They create the schema, policies, starter instruments, and atomic contribution recording.
 
 4. Start the development server:
 
