@@ -55,3 +55,13 @@ Do not publish the demo URL in the GitHub README until these checks pass. A shar
 - Set `CRON_SECRET` and `SUPABASE_SERVICE_ROLE_KEY` in Vercel Production. Without `CRON_SECRET` the route rejects every request.
 - A healthy run returns `{"ok":true,"settled":n,"remaining":0}`. Anything left in `remaining` is handled by the next run or the user's next visit.
 - Vercel Hobby limits functions to 60 seconds, so a large user base needs a paid plan or batched runs.
+
+## 6. Demo account (optional)
+
+Adds a **Try the demo** button to the landing page. The password stays on the server.
+
+1. Create a dedicated user in Supabase under Authentication → Users, with a new email and a long random password. Never reuse a real account: **the daily job erases and replaces this account's data.**
+2. Set `DEMO_USER_ID` (the user's UID), `DEMO_EMAIL` and `DEMO_PASSWORD` in Vercel Production, then redeploy.
+3. Run the cron job once to load the fictional data.
+
+Visitors can't delete the account, change its password from Settings, or add to the shared investment list. The job also restores its login details daily.
