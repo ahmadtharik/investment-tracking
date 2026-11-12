@@ -21,6 +21,22 @@ export function valuationTickers(holdings: { ticker: string; currency: string }[
   return [...tickers];
 }
 
+const SNAPSHOT_MAX_QUOTE_AGE_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Whether a value built from these quotes can be saved as today's snapshot: every
+ * holding priced by units has a recent quote, and so does the FX rate when needed.
+ * Otherwise the value includes saved balances or old prices and would draw a false move.
+ */
+export function canSaveSnapshot(holdings: Valued[], quotes: Record<string, { asOf?: string } | undefined>, now = Date.now()): boolean {
+  const needed = new Set(holdings.filter((holding) => holding.units > 0 && holding.ticker).map((holding) => holding.ticker));
+  if (holdings.some((holding) => holding.currency === 'USD')) needed.add(USD_CAD_TICKER);
+  return [...needed].every((ticker) => {
+    const asOf = quotes[ticker]?.asOf;
+    return asOf != null && now - Date.parse(asOf) <= SNAPSHOT_MAX_QUOTE_AGE_MS;
+  });
+}
+
 /** Gain or loss on a set of holdings. Null unless every holding's cost is known. */
 export function gainCad(holdings: (Valued & { cost_cad?: number | null })[], quotes: Quotes): { gain: number; cost: number } | null {
   if (holdings.length === 0 || holdings.some((holding) => holding.cost_cad == null)) return null;

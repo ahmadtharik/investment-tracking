@@ -35,6 +35,15 @@ export function nextDueFrom(today: string, dayOfMonth: number, lastHandled?: str
   return dueAfter(lastHandled, dayOfMonth);
 }
 
+/**
+ * Next due date after changing the day of an active schedule. An instalment still
+ * open this month keeps its date, so moving to an earlier day can't skip the month.
+ */
+export function nextDueForNewDay(today: string, dayOfMonth: number, currentDue: string, lastHandled?: string): string {
+  const due = nextDueFrom(today, dayOfMonth, lastHandled);
+  return currentDue >= today && currentDue.slice(0, 7) < due.slice(0, 7) ? currentDue : due;
+}
+
 /** The due date in the month after `due` (YYYY-MM-DD). */
 export function dueAfter(due: string, dayOfMonth: number): string {
   const [year, month] = due.split('-').map(Number);

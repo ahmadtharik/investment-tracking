@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { todayInToronto } from '@/lib/engine/schedule';
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -286,55 +287,8 @@ export async function addContribution(
 ): Promise<{ remainingRoom?: number }> {
   if (!Number.isFinite(c.amount_cad) || c.amount_cad <= 0 || Math.abs(c.amount_cad * 100 - Math.round(c.amount_cad * 100)) > 0.000001) throw new Error('Enter a positive CAD amount with at most two decimal places.');
   const atomic = await client.rpc('record_contribution', { p_contribution: c });
-  if (!atomic.error) return atomic.data as { remainingRoom?: number };
-  // Backward compatibility until migration 0002 is deployed. Never retry a
-  // failed transaction through the legacy path; only a missing function permits it.
-  if (atomic.error.code !== 'PGRST202') throw atomic.error;
-  // The saved room fields represent *currently available* registered-account
-  // room. Consume it when the corresponding real deposit is recorded. Cash is
-  // deliberately excluded because it has no contribution limit.
-  const roomColumn = c.account === 'TFSA' ? 'tfsa_room' : c.account === 'RRSP' ? 'rrsp_room' : null;
-  let previousRoom: number | undefined;
-  let remainingRoom: number | undefined;
-
-  if (roomColumn) {
-    const { data: profile, error: profileError } = await client
-      .from('profiles')
-      .select(roomColumn)
-      .eq('id', userId)
-      .single();
-    if (profileError) throw profileError;
-
-    previousRoom = Math.max(0, Number((profile as Record<string, unknown>)[roomColumn]) || 0);
-    if (c.amount_cad > previousRoom) {
-      throw new Error(`This ${c.account} contribution exceeds the available room of ${previousRoom.toFixed(2)} CAD.`);
-    }
-
-    remainingRoom = Math.round((previousRoom - c.amount_cad) * 100) / 100;
-    // Compare against the value we just read so a second browser tab cannot
-    // silently overwrite a more recent contribution-room update.
-    const { data: updatedProfile, error: roomError } = await client
-      .from('profiles')
-      .update({ [roomColumn]: remainingRoom })
-      .eq('id', userId)
-      .eq(roomColumn, previousRoom)
-      .select(roomColumn)
-      .maybeSingle();
-    if (roomError) throw roomError;
-    if (!updatedProfile) throw new Error('Contribution room changed. Please try again.');
-  }
-
-  const { error } = await client.from('contributions').insert({ user_id: userId, ...c });
-  if (error) {
-    // Best-effort compensation: only restore the value when nothing else has
-    // changed it after our conditional update.
-    if (roomColumn && previousRoom !== undefined && remainingRoom !== undefined) {
-      await client.from('profiles').update({ [roomColumn]: previousRoom }).eq('id', userId).eq(roomColumn, remainingRoom);
-    }
-    throw error;
-  }
-
-  return roomColumn ? { remainingRoom } : {};
+  if (atomic.error) throw atomic.error;
+  return atomic.data as { remainingRoom?: number };
 }
 
 // ── Contribution schedule ─────────────────────────────────────────────
@@ -446,7 +400,7 @@ export async function addWithdrawal(
   w: Omit<WithdrawalRow, 'id'>
 ): Promise<WithdrawalRow> {
   // A restoration year already here is assumed to be in the room the user entered.
-  const restored = w.room_restored_in != null && w.room_restored_in <= new Date().getFullYear();
+  const restored = w.room_restored_in != null && w.room_restored_in <= Number(todayInToronto().slice(0, 4));
   const { data, error } = await client.from('withdrawals').insert({ user_id: userId, restored, ...w }).select('*').single();
   if (error) throw error;
   return data as WithdrawalRow;

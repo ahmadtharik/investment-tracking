@@ -7,11 +7,11 @@ vi.mock('@/lib/supabase/server', () => ({
   serviceSupabase: () => mockServiceSupabase(),
 }));
 
-const mockYahoo = vi.hoisted(() => ({ quoteCombine: vi.fn(), historical: vi.fn(), search: vi.fn() }));
+const mockYahoo = vi.hoisted(() => ({ quoteCombine: vi.fn(), historical: vi.fn(), search: vi.fn(), quote: vi.fn() }));
 const MockYahooFinance = vi.hoisted(() => vi.fn(function MockYahooFinance() { return mockYahoo; }));
 vi.mock('yahoo-finance2', () => ({ default: MockYahooFinance }));
 
-import { getQuotes, getHistory, searchInstruments } from '@/lib/market/yahoo';
+import { getQuotes, getHistory, lookupInstrument, searchInstruments } from '@/lib/market/yahoo';
 
 /** Minimal in-memory stand-in for the Supabase client (from/select/in/eq/gte/upsert). */
 class FakeQuery {
@@ -70,6 +70,7 @@ beforeEach(() => {
   mockYahoo.quoteCombine.mockReset();
   mockYahoo.historical.mockReset();
   mockYahoo.search.mockReset();
+  mockYahoo.quote.mockReset();
 });
 
 // ── getQuotes ─────────────────────────────────────────────────────────
@@ -118,7 +119,7 @@ describe('getQuotes', () => {
 // ── getHistory ────────────────────────────────────────────────────────
 
 describe('getHistory', () => {
-  it('merges cache with fetched months and upserts only missing dates', async () => {
+  it('merges cache with fetched months', async () => {
     const db = new FakeSupabase({
       price_cache: [
         { ticker: 'XEQT.TO', price_date: '2025-01-01', close: 40 },
@@ -135,7 +136,26 @@ describe('getHistory', () => {
     const points = await getHistory('XEQT.TO', '1y');
     expect(points.map((p) => p.close)).toEqual([40, 41, 42]); // sorted, merged
     const upserted = (mockServiceSupabase.mock.results[0].value as FakeSupabase);
-    expect(upserted.tables.price_cache).toHaveLength(3); // cached rows kept, only 2025-03 added
+    expect(upserted.tables.price_cache).toHaveLength(3); // no duplicate rows
+  });
+
+  it("rewrites the current month's bar instead of keeping its first fetch", async () => {
+    const db = new FakeSupabase({ price_cache: [{ ticker: 'XEQT.TO', price_date: '2025-03-01', close: 40 }] });
+    mockServiceSupabase.mockReturnValue(db);
+    mockYahoo.historical.mockResolvedValue([{ date: '2025-03-01T00:00:00Z', close: 44 }]);
+    const points = await getHistory('XEQT.TO', '1y');
+    expect(points).toEqual([{ date: '2025-03-01', close: 44 }]);
+    expect(db.tables.price_cache[0].close).toBe(44);
+  });
+
+  it("drops Yahoo's extra live bar so each month has one point", async () => {
+    const db = new FakeSupabase({ price_cache: [{ ticker: 'XEQT.TO', price_date: '2025-03-05', close: 41 }] });
+    mockServiceSupabase.mockReturnValue(db);
+    mockYahoo.historical.mockResolvedValue([
+      { date: '2025-03-01T00:00:00Z', close: 44 },
+      { date: '2025-03-11T00:00:00Z', close: 45 },
+    ]);
+    expect(await getHistory('XEQT.TO', '1y')).toEqual([{ date: '2025-03-01', close: 44 }]);
   });
 
   it('returns fetched points when nothing is cached', async () => {
@@ -168,5 +188,16 @@ describe('searchInstruments', () => {
     expect(results).toHaveLength(8);
     expect(results[0]).toEqual({ ticker: 'T0', name: 'Name 0' });
     expect(results[7]).toEqual({ ticker: 'T7', name: 'Name 7' });
+  });
+});
+
+describe('lookupInstrument', () => {
+  it("takes the name and currency from Yahoo's quote", async () => {
+    mockYahoo.quote.mockResolvedValue({ symbol: 'VFV.TO', longName: 'Vanguard S&P 500 Index ETF', currency: 'CAD' });
+    expect(await lookupInstrument('VFV.TO')).toEqual({ name: 'Vanguard S&P 500 Index ETF', currency: 'CAD' });
+  });
+  it("returns null for a ticker Yahoo doesn't know", async () => {
+    mockYahoo.quote.mockResolvedValue(undefined);
+    expect(await lookupInstrument('NOPE.TO')).toBeNull();
   });
 });

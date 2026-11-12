@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildInstalment, coversNextByDefault, dueAfter, dueDateIn, firstDueOnOrAfter, nextDueFrom, todayInToronto } from '@/lib/engine/schedule';
+import { buildInstalment, coversNextByDefault, dueAfter, dueDateIn, firstDueOnOrAfter, nextDueForNewDay, nextDueFrom, todayInToronto } from '@/lib/engine/schedule';
 import type { PlanInput } from '@/lib/engine/types';
 
 const instrument = (id: number, ticker: string, currency: 'CAD' | 'USD' = 'CAD') => ({ id, ticker, name: ticker, currency });
@@ -56,5 +56,17 @@ describe('coversNextByDefault', () => {
   });
   it('treats an earlier purchase as an extra', () => {
     expect(coversNextByDefault('2026-10-05', '2026-11-15')).toBe(false);
+  });
+});
+
+describe('nextDueForNewDay', () => {
+  it("keeps this month's open instalment when moving to a day that has passed", () => {
+    expect(nextDueForNewDay('2026-11-11', 5, '2026-11-15', '2026-10-15')).toBe('2026-11-15');
+  });
+  it('moves to a later day in the same month', () => {
+    expect(nextDueForNewDay('2026-11-11', 20, '2026-11-15', '2026-10-15')).toBe('2026-11-20');
+  });
+  it('uses the new day once this month is already handled', () => {
+    expect(nextDueForNewDay('2026-11-20', 5, '2026-12-15', '2026-11-15')).toBe('2026-12-05');
   });
 });

@@ -10,7 +10,7 @@ import { computePlan } from '@/lib/engine/plan';
 import { futureValue } from '@/lib/engine/projection';
 import { toPlanInput } from '@/lib/plan-input';
 import { getQuotes } from '@/lib/market/yahoo';
-import { gainCad, holdingValueCad, valuationTickers } from '@/lib/valuation';
+import { gainCad, holdingValueCad, valuationTickers, canSaveSnapshot } from '@/lib/valuation';
 import { todayInToronto } from '@/lib/engine/schedule';
 import { Card } from '@/components/ui/card';
 import { DashboardGrowthCard } from '@/components/dashboard/growth-card';
@@ -58,12 +58,12 @@ export default async function DashboardPage() {
   const investedThisMonth = contributions.filter((contribution) => contribution.contributed_on.slice(0, 7) === monthKey).reduce((sum, contribution) => sum + contribution.amount_cad, 0);
   const contributionRoom = Math.max(0, profile.tfsa_room) + Math.max(0, profile.rrsp_room);
   const tickers = valuationTickers(holdings);
-  let quotes: Record<string, { price: number; currency: string }> = {};
+  let quotes: Record<string, { price: number; currency: string; asOf: string }> = {};
   if (tickers.length) { try { quotes = await getQuotes(tickers); } catch { /* market quotes are optional */ } }
   const holdingValues = holdings.map((holding) => ({ ...holding, valueCad: holdingValueCad(holding, quotes) }));
   const totalGain = gainCad(holdings, quotes);
   const portfolioValue = holdingValues.reduce((sum, holding) => sum + holding.valueCad, 0);
-  if (holdings.length) await saveSnapshot(db, user.id, todayInToronto(now), portfolioValue);
+  if (holdings.length && canSaveSnapshot(holdings, quotes)) await saveSnapshot(db, user.id, todayInToronto(now), portfolioValue);
   const allocationMap = new Map<string, { name: string; value: number }>();
   holdingValues.forEach((holding) => {
     const key = holding.ticker || holding.name || 'Unlabelled holding';
