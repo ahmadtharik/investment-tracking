@@ -82,8 +82,9 @@ export async function getQuotes(tickers: string[]) {
 
 /**
  * Monthly closes for a ticker over the requested period. Always fetches from
- * Yahoo (monthly bars are cheap) and upserts dates missing from price_cache;
- * cached rows are merged back in so the response is sorted and deduped.
+ * Yahoo (monthly bars are cheap) and rewrites the fetched bars in price_cache,
+ * because the current month's bar keeps changing until the month ends. Cached
+ * rows fill in only what Yahoo didn't return.
  */
 export async function getHistory(ticker: string, period: '1y' | '2y' | '5y' | 'max'): Promise<QuotePoint[]> {
   let db: ReturnType<typeof serviceSupabase> | undefined;
@@ -123,26 +124,37 @@ export async function getHistory(ticker: string, period: '1y' | '2y' | '5y' | 'm
     if (fallback.length > 0) return fallback.sort((a, b) => a.date.localeCompare(b.date));
     throw new Error(`Historical market data unavailable for ${ticker}`);
   }
-  const points: QuotePoint[] = history.map((bar: any) => ({
+  // Yahoo adds a live bar dated today after the month's own bar; keep one bar per month.
+  const points = oneBarPerMonth(history.map((bar: any) => ({
     date: new Date(bar.date).toISOString().slice(0, 10),
     close: bar.close,
-  }));
+  })));
 
-  const cachedDates = new Set(cached.map((r) => r.price_date));
-  const missing = points.filter((p) => !cachedDates.has(p.date));
-  if (db && missing.length > 0) {
+  if (db && points.length > 0) {
     try {
-      await db.from('price_cache').upsert(missing.map((p) => ({ ticker, price_date: p.date, close: p.close })));
+      await db.from('price_cache').upsert(points.map((p) => ({ ticker, price_date: p.date, close: p.close })));
     } catch {
       // Cache writes are best-effort.
     }
   }
 
-  const merged = [
-    ...cached.map((r) => ({ date: r.price_date, close: r.close })),
-    ...missing,
-  ];
-  return merged.sort((a, b) => a.date.localeCompare(b.date));
+  const byDate = new Map(cached.map((r) => [r.price_date, { date: r.price_date, close: r.close }]));
+  for (const point of points) byDate.set(point.date, point);
+  return oneBarPerMonth([...byDate.values()]);
+}
+
+/** The earliest-dated bar in each month, sorted by date. */
+function oneBarPerMonth(points: QuotePoint[]): QuotePoint[] {
+  const sorted = [...points].sort((a, b) => a.date.localeCompare(b.date));
+  return sorted.filter((point, index) => index === 0 || sorted[index - 1].date.slice(0, 7) !== point.date.slice(0, 7));
+}
+
+/** Name and currency for a ticker, from Yahoo. Null when Yahoo doesn't recognize it. Throws when Yahoo can't be reached. */
+export async function lookupInstrument(ticker: string): Promise<{ name: string; currency: string } | null> {
+  const result = await yahoo.quote(ticker);
+  const row = Array.isArray(result) ? result[0] : result;
+  if (!row || row.symbol?.toUpperCase() !== ticker || !row.currency) return null;
+  return { name: (row.longName ?? row.shortName ?? ticker).slice(0, 200), currency: row.currency };
 }
 
 /** Yahoo symbol search, capped at 8 results. */

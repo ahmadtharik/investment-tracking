@@ -2,7 +2,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { nextDueFrom } from '@/lib/engine/schedule';
 
 const DAY_OF_MONTH = 15;
-const TABLES = ['contributions', 'holdings', 'withdrawals', 'account_alloc', 'instrument_alloc', 'fx_prefs', 'contribution_cycles', 'contribution_schedules', 'room_events', 'portfolio_snapshots'] as const;
 
 /** Whether this user is the shared demo account, which visitors can sign in to. */
 export function isDemoUser(userId: string | undefined): boolean {
@@ -48,7 +47,6 @@ export function buildDemoData(today: string, ids: { equity: number; usd: number 
 export async function resetDemoAccount(service: SupabaseClient, today: string): Promise<boolean> {
   const userId = process.env.DEMO_USER_ID;
   if (!userId) return false;
-  const check = (result: { error: { message: string } | null }) => { if (result.error) throw new Error(result.error.message); };
   const { data: instruments, error } = await service.from('instruments').select('id, ticker').in('ticker', ['XEQT.TO', 'VTI']);
   if (error) throw error;
   const idOf = (ticker: string) => {
@@ -57,20 +55,18 @@ export async function resetDemoAccount(service: SupabaseClient, today: string): 
     return id as number;
   };
   const data = buildDemoData(today, { equity: idOf('XEQT.TO'), usd: idOf('VTI') });
-  const owned = <T extends object>(rows: T[]) => rows.map((row) => ({ user_id: userId, ...row }));
-
-  for (const table of TABLES) check(await service.from(table).delete().eq('user_id', userId));
-  check(await service.from('profiles').upsert({ id: userId, ...data.profile }));
-  check(await service.from('account_alloc').insert(owned(data.accountAlloc)));
-  check(await service.from('instrument_alloc').insert(owned(data.instrumentAlloc)));
-  check(await service.from('holdings').insert(owned(data.holdings)));
-  check(await service.from('contributions').insert(owned(data.contributions)));
-  check(await service.from('contribution_cycles').insert(owned(data.cycles)));
-  check(await service.from('contribution_schedules').insert({ user_id: userId, ...data.schedule }));
-  check(await service.from('portfolio_snapshots').insert(owned(data.snapshots)));
-
+  const { error: resetError } = await service.rpc('reset_demo_account', { p_user: userId, p_data: data });
+  if (resetError) throw new Error(resetError.message);
   // Signed-in visitors can reach these through Supabase directly, so restore them too.
-  const { error: authError } = await service.auth.admin.updateUserById(userId, { email: process.env.DEMO_EMAIL, password: process.env.DEMO_PASSWORD, email_confirm: true, user_metadata: { full_name: 'Demo User' } });
-  if (authError) throw authError;
+  if (!(await restoreDemoLogin(service))) throw new Error('Could not restore the demo login');
   return true;
+}
+
+/** Puts back the demo account's email, password and name. False when the demo isn't configured or the update fails. */
+export async function restoreDemoLogin(service: SupabaseClient): Promise<boolean> {
+  const userId = process.env.DEMO_USER_ID;
+  if (!userId || !process.env.DEMO_EMAIL || !process.env.DEMO_PASSWORD) return false;
+  const { error } = await service.auth.admin.updateUserById(userId, { email: process.env.DEMO_EMAIL, password: process.env.DEMO_PASSWORD, email_confirm: true, user_metadata: { full_name: 'Demo User' } });
+  if (error) console.error('Could not restore the demo login:', error.message);
+  return !error;
 }

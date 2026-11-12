@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { clientSupabase } from '@/lib/supabase/client';
 import { deleteSchedule, markCyclesReviewed, resolveCycle, saveSchedule, undoCycle, type CycleRow, type ScheduleRow } from '@/lib/db/queries';
-import { dueAfter, nextDueFrom, todayInToronto, type InstalmentLine } from '@/lib/engine/schedule';
+import { dueAfter, nextDueForNewDay, nextDueFrom, todayInToronto, type InstalmentLine } from '@/lib/engine/schedule';
 import { formatCAD } from '@/lib/format';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
@@ -28,7 +28,7 @@ export function ContributionSchedule({ userId, schedule, cycles, instalment }: {
   }
   const dayNumber = Number(day);
   // A new day or a resume starts from the next open date, so nothing is back-filled or repeated.
-  const start = (paused: boolean) => run(() => saveSchedule(clientSupabase(), userId, { day_of_month: dayNumber, paused, next_due: nextDueFrom(todayInToronto(), dayNumber, cycles[0]?.due_on) }));
+  const start = (paused: boolean) => run(() => saveSchedule(clientSupabase(), userId, { day_of_month: dayNumber, paused, next_due: schedule && !schedule.paused ? nextDueForNewDay(todayInToronto(), dayNumber, schedule.next_due, cycles[0]?.due_on) : nextDueFrom(todayInToronto(), dayNumber, cycles[0]?.due_on) }));
   const skip = () => run(() => resolveCycle(clientSupabase(), { due: schedule!.next_due, status: 'skipped', lines: [], nextDue: dueAfter(schedule!.next_due, schedule!.day_of_month) }));
   const early = () => run(async () => {
     const response = await fetch('/api/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'early' }) });

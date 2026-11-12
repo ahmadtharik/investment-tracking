@@ -23,7 +23,9 @@ export async function GET(request: NextRequest) {
     console.error('Demo reset failed:', caught instanceof Error ? caught.message : caught);
   }
   try {
-    return NextResponse.json({ ok: true, ...(await settleAllUsers(service, 45_000)) });
+    const result = await settleAllUsers(service, 45_000);
+    // A non-200 shows the run as failed in Vercel's logs, so a user who can't be settled gets noticed.
+    return NextResponse.json({ ok: result.failed === 0, ...result }, { status: result.failed === 0 ? 200 : 500 });
   } catch (caught) {
     console.error('Daily recording failed:', caught instanceof Error ? caught.message : caught);
     return NextResponse.json({ error: 'Daily recording failed' }, { status: 500 });

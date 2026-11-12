@@ -2,13 +2,16 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { serverSupabase, serviceSupabase } from '@/lib/supabase/server';
 import { upsertInstrument } from '@/lib/db/queries';
 import { isDemoUser } from '@/lib/demo/seed';
+import { lookupInstrument } from '@/lib/market/yahoo';
+import { TICKER_PATTERN } from '@/lib/market/tickers';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * POST /api/market/instruments  { ticker, name?, currency? }
- * Adds a ticker discovered via Yahoo search to the shared instrument list
- * (service-role write, since RLS restricts instruments to read-only).
+ * POST /api/market/instruments  { ticker }
+ * Adds a ticker to the shared instrument list (service-role write, since RLS
+ * restricts instruments to read-only). The name and currency come from Yahoo,
+ * never the client, because every user shares the first row written.
  */
 export async function POST(request: NextRequest) {
   const db = await serverSupabase();
@@ -18,14 +21,22 @@ export async function POST(request: NextRequest) {
   if (isDemoUser(user.id)) return NextResponse.json({ error: 'The demo account can only use investments already listed.' }, { status: 403 });
   const body = await request.json().catch(() => null);
   const ticker = typeof body?.ticker === 'string' ? body.ticker.trim().toUpperCase() : '';
-  if (!ticker || ticker.length > 30 || !/^[A-Z0-9.^=\-]+$/.test(ticker)) {
+  if (!TICKER_PATTERN.test(ticker)) {
     return NextResponse.json({ error: 'ticker is required' }, { status: 400 });
   }
-  const name = typeof body?.name === 'string' && body.name.trim() ? body.name.trim().slice(0, 200) : ticker;
-  const currency = body?.currency === 'USD' ? 'USD' : 'CAD';
+  let found: Awaited<ReturnType<typeof lookupInstrument>>;
+  try {
+    found = await lookupInstrument(ticker);
+  } catch {
+    return NextResponse.json({ error: 'Market data is unavailable right now. Try again shortly.' }, { status: 503 });
+  }
+  if (!found) return NextResponse.json({ error: `Yahoo Finance doesn't recognize ${ticker}.` }, { status: 400 });
+  if (found.currency !== 'CAD' && found.currency !== 'USD') {
+    return NextResponse.json({ error: `${ticker} trades in ${found.currency}. Only CAD and USD investments are supported.` }, { status: 400 });
+  }
 
   try {
-    const instrument = await upsertInstrument(serviceSupabase(), ticker, name, currency);
+    const instrument = await upsertInstrument(serviceSupabase(), ticker, found.name, found.currency);
     return NextResponse.json({ instrument });
   } catch {
     return NextResponse.json({ error: 'could not save instrument' }, { status: 500 });

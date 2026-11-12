@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { buildDemoData } from '@/lib/demo/seed';
 
 const USER = '00000000-0000-0000-0000-000000000001';
 const OTHER = '00000000-0000-0000-0000-000000000002';
@@ -202,5 +203,35 @@ describe('starter tickers', () => {
   it('uses symbols Yahoo Finance recognizes', async () => {
     const { rows } = await db.query<{ ticker: string }>(`select ticker from instruments where ticker in ('VUS.CN', 'VUN.CN', 'XIHT.TO', 'VUS.TO', 'VUN.TO', 'XIU.TO') order by ticker`);
     expect(rows.map((row) => row.ticker)).toEqual(['VUN.TO', 'VUS.TO', 'XIU.TO']);
+  });
+});
+
+describe('reset_demo_account', () => {
+  const reset = () => db.query(`select reset_demo_account($1, $2::jsonb)`, [USER, JSON.stringify(buildDemoData('2026-11-20', { equity: 1, usd: 4 }))]);
+  it("replaces only the demo user's data, and is repeatable", async () => {
+    await actAs(OTHER);
+    await db.query(`select record_purchase($1::jsonb)`, [JSON.stringify(line())]);
+    await actAs(null);
+    await reset();
+    await reset();
+    expect(await count('contributions')).toBe(18);
+    expect(await count('contribution_cycles')).toBe(6);
+    expect(await count('portfolio_snapshots')).toBe(90);
+    expect(await count('contribution_schedules')).toBe(1);
+    expect(Number((await db.query<{ n: string }>(`select count(*) as n from contributions where user_id = $1`, [OTHER])).rows[0].n)).toBe(1);
+  });
+  it('rolls back completely when part of the reset fails', async () => {
+    const before = await count('contribution_schedules');
+    const broken = { ...buildDemoData('2026-11-20', { equity: 1, usd: 4 }), holdings: [{ instrument_id: 999999, account: 'TFSA', units: 1, balance_native: 1, fx_rate: 1 }] };
+    await expect(db.query(`select reset_demo_account($1, $2::jsonb)`, [USER, JSON.stringify(broken)])).rejects.toThrow();
+    expect(await count('contribution_schedules')).toBe(before);
+  });
+  it('is not callable by signed-in users', async () => {
+    await db.exec(`set role authenticated`);
+    try {
+      await expect(reset()).rejects.toThrow(/permission denied/);
+    } finally {
+      await db.exec(`reset role`);
+    }
   });
 });
