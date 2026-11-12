@@ -12,7 +12,7 @@
   "dependencies": {
     "@radix-ui/react-popover": "^1.1.23",
     "@radix-ui/react-select": "^2.3.7",
-    "@radix-ui/react-tooltip": "^1.2.16",
+    "@radix-ui/react-tooltip": "^1.4.1",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",
     "next": "^16.4.3",
