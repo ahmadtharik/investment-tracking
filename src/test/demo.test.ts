@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildDemoData, isDemoUser } from '@/lib/demo/seed';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { buildDemoData, isDemoUser, resetDemoIfStale } from '@/lib/demo/seed';
 
 const data = buildDemoData('2026-11-20', { equity: 1, usd: 4 });
 
@@ -37,5 +38,25 @@ describe('isDemoUser', () => {
     delete process.env.DEMO_USER_ID;
     expect(isDemoUser('demo')).toBe(false);
     expect(isDemoUser(undefined)).toBe(false);
+  });
+});
+
+describe('resetDemoIfStale', () => {
+  const original = process.env.DEMO_USER_ID;
+  afterEach(() => { process.env.DEMO_USER_ID = original; });
+  const now = Date.parse('2026-11-17T15:00:00Z');
+  const service = (createdAt: string | null, onReset: () => void) => ({
+    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: createdAt ? { created_at: createdAt } : null }) }) }) }),
+    rpc: async () => { onReset(); return { error: null }; },
+  }) as unknown as SupabaseClient;
+  it('leaves data reset within the last hour alone', async () => {
+    process.env.DEMO_USER_ID = 'demo';
+    let resets = 0;
+    expect(await resetDemoIfStale(service('2026-11-17T14:30:00Z', () => { resets += 1; }), '2026-11-17', now)).toBe(false);
+    expect(resets).toBe(0);
+  });
+  it('does nothing when no demo account is configured', async () => {
+    delete process.env.DEMO_USER_ID;
+    expect(await resetDemoIfStale(service(null, () => undefined), '2026-11-17', now)).toBe(false);
   });
 });

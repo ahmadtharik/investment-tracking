@@ -43,8 +43,24 @@ export function buildDemoData(today: string, ids: { equity: number; usd: number 
   };
 }
 
+const LOGIN_RESET_AFTER_MS = 60 * 60 * 1000;
+
+/**
+ * Resets the demo data when a visitor signs in and the last reset was over an hour ago,
+ * so one visitor's changes don't greet everyone until the daily job. Leaves the login
+ * alone, so visitors already signed in stay signed in.
+ */
+export async function resetDemoIfStale(service: SupabaseClient, today: string, now = Date.now()): Promise<boolean> {
+  const userId = process.env.DEMO_USER_ID;
+  if (!userId) return false;
+  // The reset recreates the schedule, so its creation time marks the last reset.
+  const { data } = await service.from('contribution_schedules').select('created_at').eq('user_id', userId).maybeSingle();
+  if (data?.created_at && now - Date.parse(data.created_at) < LOGIN_RESET_AFTER_MS) return false;
+  return resetDemoAccount(service, today, { restoreLogin: false });
+}
+
 /** Puts the demo account back to its starting state. Only ever acts on DEMO_USER_ID. */
-export async function resetDemoAccount(service: SupabaseClient, today: string): Promise<boolean> {
+export async function resetDemoAccount(service: SupabaseClient, today: string, { restoreLogin = true } = {}): Promise<boolean> {
   const userId = process.env.DEMO_USER_ID;
   if (!userId) return false;
   const { data: instruments, error } = await service.from('instruments').select('id, ticker').in('ticker', ['XEQT.TO', 'VTI']);
@@ -58,7 +74,7 @@ export async function resetDemoAccount(service: SupabaseClient, today: string): 
   const { error: resetError } = await service.rpc('reset_demo_account', { p_user: userId, p_data: data });
   if (resetError) throw new Error(resetError.message);
   // Signed-in visitors can reach these through Supabase directly, so restore them too.
-  if (!(await restoreDemoLogin(service))) throw new Error('Could not restore the demo login');
+  if (restoreLogin && !(await restoreDemoLogin(service))) throw new Error('Could not restore the demo login');
   return true;
 }
 

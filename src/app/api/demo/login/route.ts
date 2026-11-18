@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { serverSupabase, serviceSupabase } from '@/lib/supabase/server';
-import { restoreDemoLogin } from '@/lib/demo/seed';
+import { resetDemoIfStale, restoreDemoLogin } from '@/lib/demo/seed';
+import { todayInToronto } from '@/lib/engine/schedule';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,5 +24,6 @@ export async function POST(request: NextRequest) {
     console.error('Demo sign-in failed:', error.message);
     return NextResponse.redirect(new URL('/login', request.url), 303);
   }
+  await resetDemoIfStale(serviceSupabase(), todayInToronto()).catch((caught) => console.error('Demo reset on sign-in failed:', caught instanceof Error ? caught.message : caught));
   return NextResponse.redirect(new URL('/dashboard', request.url), 303);
 }
