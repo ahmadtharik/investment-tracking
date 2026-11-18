@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PriceNotice } from '@/components/price-notice';
 import { authGuard } from '@/lib/supabase/middleware';
 import { serverSupabase } from '@/lib/supabase/server';
 import { settleDueCycles } from '@/lib/schedule/settle';
@@ -63,7 +64,8 @@ export default async function DashboardPage() {
   const holdingValues = holdings.map((holding) => ({ ...holding, valueCad: holdingValueCad(holding, quotes) }));
   const totalGain = gainCad(holdings, quotes);
   const portfolioValue = holdingValues.reduce((sum, holding) => sum + holding.valueCad, 0);
-  if (holdings.length && canSaveSnapshot(holdings, quotes)) await saveSnapshot(db, user.id, todayInToronto(now), portfolioValue);
+  const pricesLive = canSaveSnapshot(holdings, quotes);
+  if (holdings.length && pricesLive) await saveSnapshot(db, user.id, todayInToronto(now), portfolioValue);
   const allocationMap = new Map<string, { name: string; value: number }>();
   holdingValues.forEach((holding) => {
     const key = holding.ticker || holding.name || 'Unlabelled holding';
@@ -86,6 +88,7 @@ export default async function DashboardPage() {
   const profileName = (user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Your profile').toString();
 
   return <div className="dashboard-main mx-auto w-full max-w-[1248px]">
+    {holdings.length > 0 && !pricesLive && <PriceNotice />}
     <RecordedNotice userId={user.id} count={cycles.filter((cycle) => !cycle.reviewed).length} />
     <section className="relative h-auto min-h-[156px] overflow-hidden rounded-[14px] border border-blue-100 bg-[#dbeafe] px-6 py-5 sm:py-6">
       <div aria-hidden className="absolute inset-0 bg-[linear-gradient(90deg,rgba(239,246,255,.94)_0%,rgba(239,246,255,.68)_42%,rgba(219,234,254,.08)_100%),url('/images/dashboard-mountains.png')] bg-cover bg-[right_center]" />

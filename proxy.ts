@@ -5,7 +5,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
  * Refreshes the Supabase auth session cookies on each matched request.
  * Actual redirect-to-login enforcement happens in the (app) layout via authGuard().
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
